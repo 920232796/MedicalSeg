@@ -4,14 +4,6 @@ import torch.nn as nn
 import numpy as np 
 import torch 
 
-class net(nn.Module):
-    def __init__(self):
-        super(net, self).__init__()
-
-    def forward(self, x):
-        return x * 2
-
-# test infer
 if __name__ == '__main__':
     random_state = np.random.RandomState(666)
 
