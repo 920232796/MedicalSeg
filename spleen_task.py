@@ -18,7 +18,7 @@ from torch._C import dtype
 import torch.nn as nn 
 from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
-                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize
+                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
