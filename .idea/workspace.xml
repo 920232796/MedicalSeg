@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="70913ce8-2e81-4a0a-96ac-febf920fd4bb" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/inferer/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/inferer/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/transformer/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/transformer/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/transformer/transforms.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/transformer/transforms.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/utils/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/spleen_task.py" beforeDir="false" afterPath="$PROJECT_DIR$/spleen_task.py" afterDir="false" />
-    </list>
+    <list default="true" id="70913ce8-2e81-4a0a-96ac-febf920fd4bb" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

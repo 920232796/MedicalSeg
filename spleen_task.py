@@ -46,6 +46,11 @@ spatial_size = (32, 256, 256)
 sliding_window_infer = SlidingWindowInferer(roi_size=spatial_size, sw_batch_size=2, overlap=0.5)
 
 
+model_save_dir = "./state_dict/" + model_name + "/"
+if not os.path.exists(model_save_dir):
+    os.mkdir(model_save_dir)
+
+
 class Transform:
     def __init__(self, random_state) -> None:
         self.random_state = random_state
@@ -132,6 +137,29 @@ def collate_fn(batch):
 
     return torch.from_numpy(image), torch.from_numpy(label)
 
+def test_model(net_1, val_loader, fold):
+    # 训练完毕进行测试。
+    net_1.eval()
+    end_metric = []
+    for image, label in tqdm(val_loader, total=len(val_loader)):
+
+        image = image.to(device)
+        label = label.to(device)
+        label = label.squeeze(dim=1).long()
+        with torch.no_grad():
+            pred_1 = sliding_window_infer(image, network=net_1)
+            print(f"pred_1 is {pred_1.shape}")
+            metric = segmenation_metric(pred_1, label)
+            print(f"metric is {metric}")
+            end_metric.append(metric)
+
+    end_metric = np.array(end_metric, dtype=np.float)
+    end_metric = np.mean(end_metric, axis=0)
+    # 保存模型
+    torch.save(net_1.state_dict(), f"{model_save_dir}model_{fold}.bin")
+    return end_metric
+
+
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
     train_ds = MyDataset(train_data_paths, train=True)
@@ -145,7 +173,7 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
 
     for epoch in range(epochs):
         setproctitle.setproctitle("{}_{}".format(model_name, epoch))
-        print("epoch is " + str(epoch))
+        print(f"epoch is {epoch}, k_fold is {k_fold}")
         net_1.train()
 
         epoch_loss_1 = 0.0
@@ -162,30 +190,18 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             hard_loss_1.backward()
             optimizer_1.step()
 
-        if (epoch + 1) % 50 == 0:
-            for image, label in tqdm(val_loader, total=len(val_loader)):
-                # image = nn.functional.interpolate(image, size=(32, 256, 256), mode="trilinear", align_corners=False)
-                # label = torch.unsqueeze(label, dim=1)
-                # label = nn.functional.interpolate(label, size=(32, 256, 256), mode="nearest")
-                # label = torch.squeeze(label, dim=1).long()
+        print(f"epoch_loss_1 is {epoch_loss_1}")
+    
+    metric = test_model(net_1=net_1, val_loader=val_loader, fold=k_fold)
 
-                image = image.to(device)
-                label = label.to(device)
-                label = label.squeeze(dim=1).long()
-                with torch.no_grad():
-                    pred_1 = sliding_window_infer(image, network=net_1)
-
-                    print(f"pred_1 is {pred_1.shape}")
-
-                    metric = segmenation_metric(pred_1, label)
-                    print(f"metric is {metric}")
-
+    return metric 
 
 if __name__ == "__main__":
 
     X = np.arange(len(data_paths))
     kfold = KFold(n_splits=4, shuffle=False)  ## kfold为KFolf类的一个对象
     fold = 0
+    metric = []
     for a, b in kfold.split(X):  ## .split(X)方法返回迭代器，迭代器每次产生两个元素，1、训练数据集的索引；2. 测试集索引
         # print(a, b)
         fold += 1
@@ -200,41 +216,20 @@ if __name__ == "__main__":
 
         model = BasicUNet(dimensions=3, in_channels=in_channels, out_channels=out_channels, features=[16, 16, 32, 64, 128, 16])
 
-        main_train(model, train_data_paths=train_paths, test_data_paths=val_paths, k_fold=fold)
+        metric_fold = main_train(model, train_data_paths=train_paths, test_data_paths=val_paths, k_fold=fold)
+        metric.append(metric_fold)
+        with open(model_save_dir + "res.txt", "a+") as f:
+            f.write(f"fold_{fold} res is {metric_fold}")
 
+            f.write("\n")
+    
+    metric = np.array(metric, dtype=np.float)
+    metric = np.mean(metric, axis=0)
+    print(f"end res is {metric}")
+    with open(model_save_dir + "res.txt", "a+") as f:
+            f.write(f"end res is {metric}")
+            f.write("\n")
+            f.write("~~~~~~~~~~~~")
+            f.write("\n")
 
-    # print(spleen_image_paths)
-    # for image_path, label_path in zip(spleen_image_paths, spleen_label_paths):
-    #     image = sitk.ReadImage(image_path)
-    #     label = sitk.ReadImage(label_path)
-    #     # print(image.shape)
-    #     image = sitk.GetArrayFromImage(image)
-    #     label = sitk.GetArrayFromImage(label)
-    #     print(image.shape)
-    #     print(label.shape)
-    #     print(label.min())
-    #     print(label.max())
-    #     print(image.min())
-    #     print(image.max())
-    #     image = (image - image.min()) / (image.max() - image.min())
-    #     print(image.min())
-    #     print(image.max())
-    #     for i in range(50):
-    #         plt.subplot(1, 2, 1)
-    #         plt.imshow(image[i], cmap="gray")
-    #         plt.subplot(1, 2, 2)
-    #         plt.imshow(label[i], cmap="gray")
-    #         plt.show()
-    #     break 
-    ##  # print(image.shape)
-            # print(label.shape)
-            # import matplotlib.pyplot as plt 
-            # for i in range(15, 30):
-            #     plt.subplot(1, 2, 1)
-            #     img = image[0, 0, i]
-            #     plt.imshow(img, cmap="gray")
-            #     plt.subplot(1, 2, 2)
-            #     plt.imshow(label[0, 0, i], cmap="gray")
-            #     plt.show()
-                
-            # continue
+    
