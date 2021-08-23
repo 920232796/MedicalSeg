@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 import torch.nn.functional as F
-from bis3d_v2.networks.nets.pra_net.ResNet import ResNet
+from medical_seg.networks.nets.pra_net.ResNet import ResNet
 import math
 
 

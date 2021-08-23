@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from bis3d_v2.networks.nets.TransBTS.Transformer import TransformerModel
-from bis3d_v2.networks.nets.TransBTS.PositionalEncoding import FixedPositionalEncoding,LearnedPositionalEncoding
-from bis3d_v2.networks.nets.TransBTS.Unet_skipconnection import Unet
+from medical_seg.networks.nets.TransBTS.Transformer import TransformerModel
+from medical_seg.networks.nets.TransBTS.PositionalEncoding import FixedPositionalEncoding,LearnedPositionalEncoding
+from medical_seg.networks.nets.TransBTS.Unet_skipconnection import Unet
 
 
 class TransformerBTS(nn.Module):

@@ -1,5 +1,5 @@
 import torch.nn as nn
-from bis3d_v2.networks.nets.TransBTS.IntmdSequential import IntermediateSequential
+from medical_seg.networks.nets.TransBTS.IntmdSequential import IntermediateSequential
 
 
 class SelfAttention(nn.Module):
