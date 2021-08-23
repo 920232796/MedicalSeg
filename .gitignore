@@ -7,6 +7,9 @@ __pycache__/
 *.so
 data
 res.txt
+examples
+nohup_dir
+state_dict
 # Distribution / packaging
 .Python
 build/
