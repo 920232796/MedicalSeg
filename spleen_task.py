@@ -48,6 +48,8 @@ if __name__ == "__main__":
         
 
 
+
+
     # print(spleen_image_paths)
     # for image_path, label_path in zip(spleen_image_paths, spleen_label_paths):
     #     image = sitk.ReadImage(image_path)
