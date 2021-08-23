@@ -1,20 +1,14 @@
 ## 数据 http://medicaldecathlon.com/ 里面的spleen 分割 数据为3D size为（51， 512， 512）  5折交叉验证
 import glob
 from medical_seg.utils.enums import BlendMode
-
-from matplotlib import cm
 from medical_seg.utils.misc import dtype_numpy_to_torch
-from operator import pos 
 import os 
-import matplotlib.pyplot as plt 
 import SimpleITK as sitk
-from numpy.lib.type_check import imag 
 from sklearn.model_selection import KFold  ## K折交叉验证
-import numpy as np 
+import numpy as np
 import torch 
 from torch import optim
 import setproctitle
-from torch._C import dtype
 import torch.nn as nn 
 from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
