@@ -5,6 +5,7 @@ from scipy.ndimage import rotate, map_coordinates, gaussian_filter
 import h5py
 import matplotlib.pyplot as plt 
 import torch 
+from .utils import generate_pos_neg_label_crop_centers
 
 class Random:
     def __init__(self, seed) -> None:
@@ -264,6 +265,35 @@ class CenterSpatialCrop:
         cropper = SpatialCrop(roi_center=center, roi_size=self.roi_size)
         return cropper(img)
 
+def map_binary_to_indices(
+    label: np.ndarray,
+    image: Optional[np.ndarray] = None,
+    image_threshold: float = 0.0,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Compute the foreground and background of input label data, return the indices after fattening.
+    For example:
+    ``label = np.array([[[0, 1, 1], [1, 0, 1], [1, 1, 0]]])``
+    ``foreground indices = np.array([1, 2, 3, 5, 6, 7])`` and ``background indices = np.array([0, 4, 8])``
+    Args:
+        label: use the label data to get the foreground/background information.
+        image: if image is not None, use ``label = 0 & image > image_threshold``
+            to define background. so the output items will not map to all the voxels in the label.
+        image_threshold: if enabled `image`, use ``image > image_threshold`` to
+            determine the valid image content area and select background only in this area.
+    """
+    # Prepare fg/bg indices
+    if label.shape[0] > 1:
+        label = label[1:]  # for One-Hot format data, remove the background channel
+    label_flat = np.any(label, axis=0).ravel()  # in case label has multiple dimensions
+    fg_indices = np.nonzero(label_flat)[0]
+    if image is not None:
+        img_flat = np.any(image > image_threshold, axis=0).ravel()
+        bg_indices = np.nonzero(np.logical_and(img_flat, ~label_flat))[0]
+    else:
+        bg_indices = np.nonzero(~label_flat)[0]
+
+    return fg_indices, bg_indices
 
 class RandCropByPosNegLabel:
     """
@@ -319,8 +349,7 @@ class RandCropByPosNegLabel:
         num_samples: int = 1,
         image: Optional[np.ndarray] = None,
         image_threshold: float = 0.0,
-        fg_indices: Optional[np.ndarray] = None,
-        bg_indices: Optional[np.ndarray] = None,
+        random_state: np.random.RandomState = None,
     ) -> None:
         self.spatial_size = spatial_size
         self.label = label
@@ -333,28 +362,19 @@ class RandCropByPosNegLabel:
         self.image = image
         self.image_threshold = image_threshold
         self.centers: Optional[List[List[np.ndarray]]] = None
-        self.fg_indices = fg_indices
-        self.bg_indices = bg_indices
-
+        self.random_state = random_state
+       
     def randomize(
         self,
         label: np.ndarray,
-        fg_indices: Optional[np.ndarray] = None,
-        bg_indices: Optional[np.ndarray] = None,
         image: Optional[np.ndarray] = None,
     ) -> None:
         self.spatial_size = self.spatial_size
-        if fg_indices is None or bg_indices is None:
-            if self.fg_indices is not None and self.bg_indices is not None:
-                fg_indices_ = self.fg_indices
-                bg_indices_ = self.bg_indices
-            else:
-                fg_indices_, bg_indices_ = map_binary_to_indices(label, image, self.image_threshold)
-        else:
-            fg_indices_ = fg_indices
-            bg_indices_ = bg_indices
+        
+        fg_indices_, bg_indices_ = map_binary_to_indices(label, image, self.image_threshold)
+       
         self.centers = generate_pos_neg_label_crop_centers(
-            self.spatial_size, self.num_samples, self.pos_ratio, label.shape[1:], fg_indices_, bg_indices_, self.R
+            self.spatial_size, self.num_samples, self.pos_ratio, label.shape[1:], fg_indices_, bg_indices_, rand_state=self.random_state
         )
 
     def __call__(
@@ -385,7 +405,7 @@ class RandCropByPosNegLabel:
         if image is None:
             image = self.image
 
-        self.randomize(label, fg_indices, bg_indices, image)
+        self.randomize(label, image)
         results: List[np.ndarray] = []
         if self.centers is not None:
             for center in self.centers:

@@ -13,7 +13,8 @@ def correct_crop_centers(
         spatial_size: spatial size of the ROIs to be sampled.
         label_spatial_shape: spatial shape of the original label data to compare with ROI.
     """
-    spatial_size = spatial_size, default=label_spatial_shape
+    spatial_size = spatial_size
+    default=label_spatial_shape
     if not (np.subtract(label_spatial_shape, spatial_size) >= 0).all():
         raise ValueError("The size of the proposed random crop ROI is larger than the image size.")
 
