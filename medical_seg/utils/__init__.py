@@ -15,3 +15,5 @@ from .decorators import *
 from .enums import *
 from .misc import *
 from .module import *
+
+from .seed import *

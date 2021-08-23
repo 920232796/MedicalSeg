@@ -1,4 +1,5 @@
 from functools import total_ordering
+from operator import is_
 import numpy as np
 from typing import Callable, Iterable, List, Optional, Sequence, Tuple, Union
 from scipy.ndimage import rotate, map_coordinates, gaussian_filter
@@ -367,10 +368,12 @@ class RandCropByPosNegLabel:
     def randomize(
         self,
         label: np.ndarray,
+       
         image: Optional[np.ndarray] = None,
     ) -> None:
         self.spatial_size = self.spatial_size
         
+       
         fg_indices_, bg_indices_ = map_binary_to_indices(label, image, self.image_threshold)
        
         self.centers = generate_pos_neg_label_crop_centers(
@@ -382,8 +385,7 @@ class RandCropByPosNegLabel:
         img: np.ndarray,
         label: Optional[np.ndarray] = None,
         image: Optional[np.ndarray] = None,
-        fg_indices: Optional[np.ndarray] = None,
-        bg_indices: Optional[np.ndarray] = None,
+        is_label = False,
     ) -> List[np.ndarray]:
         """
         Args:
@@ -405,12 +407,15 @@ class RandCropByPosNegLabel:
         if image is None:
             image = self.image
 
-        self.randomize(label, image)
+        if not is_label:
+            self.randomize(label, image)
         results: List[np.ndarray] = []
         if self.centers is not None:
             for center in self.centers:
                 cropper = SpatialCrop(roi_center=tuple(center), roi_size=self.spatial_size)  # type: ignore
-                results.append(cropper(img))
+                r = cropper(img)
+                results.append(r)
+                
 
         return results
     
