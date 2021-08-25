@@ -38,6 +38,9 @@ Medical Image Segmentation Models，集成各种医学图像分割模型，主�
 
 部分模型还没经过测试，欢迎测试使用。
 
+## examples
+1. spleen 分割 200 epoch dice->0.88 iou->0.80
+
 ## 声明
 
 本仓库代码不完全是本人开发，有些模型使用了github中别人贡献的代码，在此仓库作为统一整理，部分代码借鉴了Monai框架 https://github.com/Project-MONAI/MONAI/tree/dev/monai 非常感谢。
