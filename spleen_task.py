@@ -28,11 +28,11 @@ seed = 3213214325
 in_channels = 1
 out_channels = 2
 batch_size = 1
-sample_size = 2
+sample_size = 3
 random_state = np.random.RandomState(seed)
 set_seed(seed)
 lr = 0.0001
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 epochs = 200
 model_name = "spleen_unet"
 spatial_size = (32, 256, 256)
@@ -166,7 +166,7 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
     val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
 
     for epoch in range(epochs):
-        setproctitle.setproctitle("{}_{}".format(model_name, epoch))
+        setproctitle.setproctitle("{}_{}".format(model_name, k_fold))
         print(f"epoch is {epoch}, k_fold is {k_fold}")
         net_1.train()
 
