@@ -233,6 +233,28 @@ class BasicUNet(nn.Module):
         logits = self.final_conv(u1)
         return logits
 
+    def uncer(self, x: torch.Tensor):
+        x0 = self.conv_0(x)
+
+        x1 = self.down_1(x0)
+        x2 = self.down_2(x1)
+        x3 = self.down_3(x2)
+        x4 = self.down_4(x3)
+
+        u4 = self.upcat_4(x4, x3)
+        u3 = self.upcat_3(u4, x2)
+        u2 = self.upcat_2(u3, x1)
+        u1 = self.upcat_1(u2, x0)
+
+        logits = self.final_conv(u1)
+
+        uncer_out = self.drop(logits).detach() # 去掉梯度
+        uncer_out = torch.softmax(uncer_out, dim=1)
+
+        uncer_out = torch.sum(-uncer_out * torch.log(uncer_out), dim=1, keepdim=True)
+
+        return logits, uncer_out
+
 
 
 
