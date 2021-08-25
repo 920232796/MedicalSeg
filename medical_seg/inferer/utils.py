@@ -133,6 +133,7 @@ def sliding_window_inference(
     cval: float = 0.0,
     sw_device: Union[torch.device, str, None] = None,
     device: Union[torch.device, str, None] = None,
+    pred_type: str ="forward",
 ) -> torch.Tensor:
     """
     """
@@ -193,7 +194,10 @@ def sliding_window_inference(
 
         window_data = torch.cat([inputs[win_slice] for win_slice in unravel_slice]).to(sw_device)
         # print("data is " + str(window_data.shape))
-        seg_prob = predictor(window_data).to(device)  # batched patch segmentation
+        if pred_type == "forward":
+            seg_prob = predictor(window_data).to(device)  # batched patch segmentation
+        elif pred_type == "uncer":
+            seg_prob = predictor.uncer(window_data).to(device)
 
         if not _initialized:  # init. buffer at the first iteration
             output_classes = seg_prob.shape[1]

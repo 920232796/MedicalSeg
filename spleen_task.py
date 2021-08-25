@@ -1,5 +1,6 @@
 ## 数据 http://medicaldecathlon.com/ 里面的spleen 分割 数据为3D size为（51， 512， 512）  5折交叉验证
 import glob
+from medical_seg.utils.enums import BlendMode
 import os 
 import SimpleITK as sitk
 from sklearn.model_selection import KFold  ## K折交叉验证
