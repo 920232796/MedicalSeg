@@ -418,15 +418,30 @@ class RandCropByPosNegLabel:
                 
 
         return results
+
+class Normalize:
+    """
+    Apply simple min-max scaling to a given input tensor, i.e. shrinks the range of the data in a fixed range of [-1, 1].
+    """
+
+    def __init__(self, min_value, max_value):
+        assert max_value > min_value
+        self.min_value = min_value
+        self.value_range = max_value - min_value
+
+    def __call__(self, m):
+        norm_0_1 = (m - self.min_value) / self.value_range
+        return np.clip(2 * norm_0_1 - 1, -1, 1)
+
     
-if __name__ == "__main__":
-    csc = CenterSpatialCrop(roi_size=(2, 2, 2))
+# if __name__ == "__main__":
+    # csc = CenterSpatialCrop(roi_size=(2, 2, 2))
 
-    t1 = torch.rand(1, 4, 4, 4)
-    print(t1)
-    out = csc(t1)
-    print(out)
-
+    # t1 = torch.rand(1, 4, 4, 4)
+    # print(t1)
+    # out = csc(t1)
+    # print(out)
+    
 
 # if __name__ == "__main__":
 #     print("数据增强函数测试")
