@@ -70,7 +70,6 @@ class SlidingWindowInferer:
         self.cval = cval
         self.sw_device = sw_device
         self.device = device
-        self.pred_type = pred_type
 
     def __call__(self, inputs: torch.Tensor, network: Callable[[torch.Tensor], torch.Tensor], pred_type="forward") -> torch.Tensor:
         """
