@@ -7,6 +7,7 @@ __pycache__/
 *.so
 data
 res.txt
+test.py
 res_dir
 run.sh
 examples
