@@ -101,6 +101,26 @@ class RandomFlip():
 
         return result.astype(img.dtype)
 
+class RandomRotate90:
+    def __init__(self, random_state):
+        self.random_state = random_state
+        # always rotate around z-axis
+        self.axis = (1, 2)
+
+    def __call__(self, m, label=None):
+        assert m.ndim in [3, 4], 'Supports only 3D (DxHxW) or 4D (CxDxHxW) images'
+        k = self.random_state.randint(0, 4)
+        # rotate k times around a given plane
+        assert m.ndim == 4, "输入必须为3d图像，第一个维度为channel"
+      
+        channels = [np.rot90(m[c], k, self.axis) for c in range(m.shape[0])]
+        m = np.stack(channels, axis=0)
+        if label is not None :
+            assert label.ndim == 3, "label shape 必须为三维"
+            label = np.rot90(label, k, self.axis)
+
+        return m, label
+
 class RandomRotate:
     """
     Rotate an array by a random degrees from taken from (-angle_spectrum, angle_spectrum) interval.
