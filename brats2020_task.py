@@ -24,7 +24,7 @@ from utils import segmenation_metric, resample_image_array_size
 data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
 print(data_paths)
 train_paths = data_paths[:315]
-test_paths = data_paths[315:]
+val_paths = data_paths[315:]
 
 seed = 3213214325
 in_channels = 1
