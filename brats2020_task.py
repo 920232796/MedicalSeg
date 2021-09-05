@@ -1,5 +1,7 @@
-## 数据 http://medicaldecathlon.com/ 里面的spleen 分割 数据为3D size为（30-100， 512， 512）  4折交叉验证
+## 数据 brats 2020 数据
 import glob
+
+from matplotlib import cm
 from medical_seg.utils.enums import BlendMode
 import os 
 import SimpleITK as sitk
@@ -13,45 +15,47 @@ from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
                                     AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
 from medical_seg.networks import BasicUNet
+
 from medical_seg.utils import set_seed
 from tqdm import tqdm
 from medical_seg.inferer import SlidingWindowInferer
 from utils import segmenation_metric, resample_image_array_size
 
-spleen_image_paths = glob.glob("./data/Task09_Spleen/imagesTr/*")
-spleen_label_paths = glob.glob("./data/Task09_Spleen/labelsTr/*")
-
-data_paths = [{"image": image, "label": label} for image, label in zip(spleen_image_paths, spleen_label_paths)]
+data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
+print(data_paths)
+train_paths = data_paths[:315]
+test_paths = data_paths[315:]
 
 seed = 3213214325
 in_channels = 1
 out_channels = 2
-batch_size = 1
-sample_size = 3
+sample_size = 2
 random_state = np.random.RandomState(seed)
 set_seed(seed)
 lr = 0.0001
 device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-epochs = 200
+epochs = 500
 model_name = "spleen_unet"
-spatial_size = (32, 256, 256)
+spatial_size = (128, 128, 128)
 
 sliding_window_infer = SlidingWindowInferer(roi_size=spatial_size, sw_batch_size=2, overlap=0.5)
 
+if not os.path.exists("./state_dict/"):
+    os.mkdir("./state_dict/")
+    print("新建state_dict文件夹，用于存放保存的模型与结果...")
 
 model_save_dir = "./state_dict/" + model_name + "/"
 if not os.path.exists(model_save_dir):
     os.mkdir(model_save_dir)
 
-
 class Transform:
     def __init__(self, random_state) -> None:
         self.random_state = random_state
         
-        self.rf = RandomFlip(self.random_state, execution_probability=0.2)
+        self.rf = RandomFlip(self.random_state, execution_probability=0.1)
         self.rr = RandomRotate(self.random_state, angle_spectrum=30)
-        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.2), execution_probability=0.2)
-        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.01), execution_probability=0.2)
+        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.1), execution_probability=0.1)
+        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.005), execution_probability=0.1)
 
     def __call__(self, image, label):
         image, label = self.rf(image, label)
@@ -77,12 +81,6 @@ class MyDataset(Dataset):
     def __getitem__(self, i):
         get_path = self.paths[i]
         image, label = self._read_image(get_path)
-        if image.shape[1] < 32:
-            image_shape = image.shape
-            out_size = (image_shape[0], 32, 256, 256)
-            image = resample_image_array_size(image, out_size, order=3)
-            label = resample_image_array_size(label, out_size=(32, 256, 256), order=0)
-
 
         sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
         image = sd(image)
@@ -111,13 +109,22 @@ class MyDataset(Dataset):
         return len(self.paths)
 
     def _read_image(self, image_path):
-        image = sitk.ReadImage(image_path["image"])
-        label = sitk.ReadImage(image_path["label"])
-        image = sitk.GetArrayFromImage(image)
-        label = sitk.GetArrayFromImage(label)
-        if image.ndim == 3:
-            image = np.expand_dims(image, axis=0)
-        return image, label
+        images = [] 
+        label = None
+        paths = sorted(glob.glob(image_path + "/*.nii"))
+        for p in paths:
+            if "_seg.nii" in p:
+                # 找到seg文件
+                label = sitk.ReadImage(p)
+                label = sitk.GetArrayFromImage(label)
+            else :
+                image = sitk.ReadImage(p)
+                image = sitk.GetArrayFromImage(image)
+                images.append(image)
+        
+        images = np.array(images)
+       
+        return images, label
 
 def collate_fn(batch):
     assert len(batch) == 1, "随机crop时，请设置sample size，而batch size只能为1"
@@ -129,6 +136,26 @@ def collate_fn(batch):
     label = np.array(label, dtype=np.int16)
 
     return torch.from_numpy(image), torch.from_numpy(label)
+
+## test dataloader
+# ds = MyDataset(paths=data_paths, train=False)
+# dl = DataLoader(ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
+# import matplotlib.pyplot as plt 
+# for image, label in dl:
+#     print(image.shape)
+#     print(label.shape)
+#     plt.subplot(1, 5, 1)
+#     plt.imshow(image[0, 0, 60], cmap="gray")
+#     plt.subplot(1, 5, 2)
+#     plt.imshow(image[0, 1, 60], cmap="gray")
+#     plt.subplot(1, 5, 3)
+#     plt.imshow(image[0, 2, 60], cmap="gray")
+#     plt.subplot(1, 5, 4)
+#     plt.imshow(image[0, 3, 60], cmap="gray")
+#     plt.subplot(1, 5, 5)
+#     plt.imshow(label[0, 0, 60], cmap="gray")
+#     plt.show()
+# os._exit(0)
 
 def test_model(net_1, val_loader, fold):
     # 训练完毕进行测试。
@@ -149,17 +176,17 @@ def test_model(net_1, val_loader, fold):
     end_metric = np.array(end_metric, dtype=np.float)
     end_metric = np.mean(end_metric, axis=0)
     # 保存模型
-    torch.save(net_1.state_dict(), f"{model_save_dir}model_{fold}.bin")
+    save_path = f"{model_save_dir}model_{fold}.bin"
+    torch.save(net_1.state_dict(), save_path)
+    print(f"模型保存成功: {save_path}")
     return end_metric
-
-
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
     train_ds = MyDataset(train_data_paths, train=True)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, collate_fn=collate_fn)
     optimizer_1 = optim.Adam(net_1.parameters(), lr=lr, weight_decay=1e-5)
     net_1.to(device)
-    criterion_1 = nn.CrossEntropyLoss(weight=torch.tensor([0.2, 0.8], device=device, dtype=torch.float32))
+    criterion_1 = nn.CrossEntropyLoss()
 
     val_ds = MyDataset(test_data_paths, train=False)
     val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
@@ -190,39 +217,14 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
     return metric 
 
 if __name__ == "__main__":
-
-    X = np.arange(len(data_paths))
-    kfold = KFold(n_splits=4, shuffle=False)  ## kfold为KFolf类的一个对象
-    fold = 0
-    metric = []
-    for a, b in kfold.split(X):  ## .split(X)方法返回迭代器，迭代器每次产生两个元素，1、训练数据集的索引；2. 测试集索引
-        # print(a, b)
-        fold += 1
-        train_paths = []
-        val_paths = []
-        for train_indice in a:
-            train_paths.append(data_paths[train_indice])
-        for val_indice in b :
-            val_paths.append(data_paths[val_indice])
-        
-        print(f"fold is {fold} \n train_set is {a} \n test_set is {b}")
-
-        model = BasicUNet(dimensions=3, in_channels=in_channels, out_channels=out_channels, features=[16, 16, 32, 64, 128, 16])
-
-        metric_fold = main_train(model, train_data_paths=train_paths, test_data_paths=val_paths, k_fold=fold)
-        metric.append(metric_fold)
-        with open(model_save_dir + "res.txt", "a+") as f:
-            f.write(f"fold_{fold} res is {metric_fold}")
-
-            f.write("\n")
+   
+    model = BasicUNet(dimensions=3, in_channels=in_channels, out_channels=out_channels, features=[16, 16, 32, 64, 128, 16])
     
-    metric = np.array(metric, dtype=np.float)
-    metric = np.mean(metric, axis=0)
-    print(f"end res is {metric}")
+    metric_fold = main_train(model, train_data_paths=train_paths, test_data_paths=val_paths)
     with open(model_save_dir + "res.txt", "a+") as f:
-            f.write(f"end res is {metric}")
-            f.write("\n")
-            f.write("~~~~~~~~~~~~")
-            f.write("\n")
+        f.write(f"res is {metric_fold}")
+
+        f.write("\n")
+    
 
     

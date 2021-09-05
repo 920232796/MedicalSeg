@@ -9,6 +9,7 @@ data
 res.txt
 test.py
 res_dir
+state_dict
 run.sh
 examples
 nohup_dir
