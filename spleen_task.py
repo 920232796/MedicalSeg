@@ -15,9 +15,10 @@ from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomF
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
-from medical_seg.dataset import collate_fn
+from medical_seg.dataset import collate_fn, average_metric
 from medical_seg.inferer import SlidingWindowInferer
 from medical_seg.helper import segmenation_metric, resample_image_array_size
+from medical_seg.evaluation import Metric
 
 spleen_image_paths = glob.glob("./data/Task09_Spleen/imagesTr/*")
 spleen_label_paths = glob.glob("./data/Task09_Spleen/labelsTr/*")
@@ -38,7 +39,7 @@ model_name = "spleen_unet"
 spatial_size = (32, 256, 256)
 
 sliding_window_infer = SlidingWindowInferer(roi_size=spatial_size, sw_batch_size=2, overlap=0.5)
-
+metric = Metric(class_name=["spleen"], voxel_spacing=(1, 1, 1), nan_for_nonexisting=True)
 
 model_save_dir = "./state_dict/" + model_name + "/"
 if not os.path.exists(model_save_dir):
@@ -121,28 +122,24 @@ class MyDataset(Dataset):
         return image, label
 
 
-def test_model(net_1, val_loader, fold):
+def test_model(net_1, val_loader):
     # 训练完毕进行测试。
     net_1.eval()
-    end_metric = []
+    metric_res = []
     for image, label in tqdm(val_loader, total=len(val_loader)):
-
         image = image.to(device)
         label = label.to(device)
+        
         label = label.squeeze(dim=1).long()
         with torch.no_grad():
+           
             pred_1 = sliding_window_infer(image, network=net_1)
-            print(f"pred_1 is {pred_1.shape}")
-            metric = segmenation_metric(pred_1, label)
-            print(f"metric is {metric}")
-            end_metric.append(metric)
+            
+            metric_res.append(metric.run(pred=pred_1.argmax(dim=1, keepdim=False), label=label))
 
-    end_metric = np.array(end_metric, dtype=np.float)
-    end_metric = np.mean(end_metric, axis=0)
-    # 保存模型
-    torch.save(net_1.state_dict(), f"{model_save_dir}model_{fold}.bin")
-    return end_metric
-
+    metric_res = average_metric(metric_res)
+   
+    return metric_res
 
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
@@ -174,9 +171,12 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             hard_loss_1.backward()
             optimizer_1.step()
 
+        if (epoch + 1) % 100 == 0:
+            # 保存模型
+            torch.save(net_1.state_dict(), f"{model_save_dir}model_{k_fold}_epoch_{epoch}.bin")
         print(f"epoch_loss_1 is {epoch_loss_1}")
     
-    metric = test_model(net_1=net_1, val_loader=val_loader, fold=k_fold)
+    metric = test_model(net_1=net_1, val_loader=val_loader)
 
     return metric 
 
@@ -187,7 +187,6 @@ if __name__ == "__main__":
     fold = 0
     metric = []
     for a, b in kfold.split(X):  ## .split(X)方法返回迭代器，迭代器每次产生两个元素，1、训练数据集的索引；2. 测试集索引
-        # print(a, b)
         fold += 1
         train_paths = []
         val_paths = []
@@ -204,11 +203,10 @@ if __name__ == "__main__":
         metric.append(metric_fold)
         with open(model_save_dir + "res.txt", "a+") as f:
             f.write(f"fold_{fold} res is {metric_fold}")
-
             f.write("\n")
     
-    metric = np.array(metric, dtype=np.float)
-    metric = np.mean(metric, axis=0)
+    metric = average_metric(metric)
+    
     print(f"end res is {metric}")
     with open(model_save_dir + "res.txt", "a+") as f:
             f.write(f"end res is {metric}")
