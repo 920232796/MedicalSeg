@@ -73,4 +73,5 @@ def evaluate_BraTS_case(arr: np.ndarray, arr_gt: np.ndarray):
     hd95_enh = compute_BraTS_HD95(mask_gt, mask_pred)
     del mask_gt, mask_pred
 
-    return dc_whole, dc_core, dc_enh, hd95_whole, hd95_core, hd95_enh
+    return {"dc_whole":dc_whole, "dc_core": dc_core, "dc_enh": dc_enh, "hd95_whole": hd95_whole,
+             "hd95_core": hd95_core, "hd95_enh": hd95_enh}

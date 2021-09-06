@@ -15,10 +15,10 @@ from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomF
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
-from medical_seg.dataset import collate_fn, average_metric
+from medical_seg.dataset import collate_fn
 from medical_seg.inferer import SlidingWindowInferer
 from medical_seg.helper import segmenation_metric, resample_image_array_size
-from medical_seg.evaluation import Metric
+from medical_seg.evaluation import Metric, average_metric
 
 spleen_image_paths = glob.glob("./data/Task09_Spleen/imagesTr/*")
 spleen_label_paths = glob.glob("./data/Task09_Spleen/labelsTr/*")
@@ -206,7 +206,7 @@ if __name__ == "__main__":
             f.write("\n")
     
     metric = average_metric(metric)
-    
+
     print(f"end res is {metric}")
     with open(model_save_dir + "res.txt", "a+") as f:
             f.write(f"end res is {metric}")

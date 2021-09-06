@@ -15,11 +15,12 @@ from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
                                     AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
 from medical_seg.networks import BasicUNet
-
 from medical_seg.utils import set_seed
+from medical_seg.dataset import collate_fn
 from tqdm import tqdm
 from medical_seg.inferer import SlidingWindowInferer
 from medical_seg.helper import segmenation_metric, resample_image_array_size
+from medical_seg.evaluation import evaluate_BraTS_case, average_metric
 
 data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
 print(data_paths)
@@ -126,19 +127,8 @@ class MyDataset(Dataset):
        
         return images, label
 
-def collate_fn(batch):
-    assert len(batch) == 1, "随机crop时，请设置sample size，而batch size只能为1"
-    batch = batch[0]
-    image = batch["image"]
-    label = batch["label"]
 
-    image = np.array(image, dtype=np.float32)
-    label = np.array(label, dtype=np.int16)
-
-    return torch.from_numpy(image), torch.from_numpy(label)
-
-
-def test_model(net_1, val_loader, fold):
+def test_model(net_1, val_loader):
     # 训练完毕进行测试。
     net_1.eval()
     end_metric = []
@@ -149,17 +139,11 @@ def test_model(net_1, val_loader, fold):
         label = label.squeeze(dim=1).long()
         with torch.no_grad():
             pred_1 = sliding_window_infer(image, network=net_1)
-            print(f"pred_1 is {pred_1.shape}")
-            metric = segmenation_metric(pred_1, label)
-            print(f"metric is {metric}")
-            end_metric.append(metric)
-
-    end_metric = np.array(end_metric, dtype=np.float)
-    end_metric = np.mean(end_metric, axis=0)
-    # 保存模型
-    save_path = f"{model_save_dir}model_{fold}.bin"
-    torch.save(net_1.state_dict(), save_path)
-    print(f"模型保存成功: {save_path}")
+            pred_1 = pred_1.argmax(dim=1)
+            end_metric.append(evaluate_BraTS_case(pred_1, label))
+        
+    end_metric = average_metric(end_metric)
+   
     return end_metric
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
@@ -192,8 +176,13 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             optimizer_1.step()
 
         print(f"epoch_loss_1 is {epoch_loss_1}")
-    
-    metric = test_model(net_1=net_1, val_loader=val_loader, fold=k_fold)
+        if (epoch + 1) % 100 == 0:
+              # 保存模型
+            save_path = f"{model_save_dir}model_{k_fold}_epoch_{epoch}.bin"
+            torch.save(net_1.state_dict(), save_path)
+            print(f"模型保存成功: {save_path}")
+
+    metric = test_model(net_1=net_1, val_loader=val_loader)
 
     return metric 
 
