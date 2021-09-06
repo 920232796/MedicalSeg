@@ -15,6 +15,7 @@ from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomF
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
+from medical_seg.dataset import collate_fn
 from medical_seg.inferer import SlidingWindowInferer
 from medical_seg.helper import segmenation_metric, resample_image_array_size
 
@@ -119,16 +120,6 @@ class MyDataset(Dataset):
             image = np.expand_dims(image, axis=0)
         return image, label
 
-def collate_fn(batch):
-    assert len(batch) == 1, "随机crop时，请设置sample size，而batch size只能为1"
-    batch = batch[0]
-    image = batch["image"]
-    label = batch["label"]
-
-    image = np.array(image, dtype=np.float32)
-    label = np.array(label, dtype=np.int16)
-
-    return torch.from_numpy(image), torch.from_numpy(label)
 
 def test_model(net_1, val_loader, fold):
     # 训练完毕进行测试。
