@@ -137,25 +137,6 @@ def collate_fn(batch):
 
     return torch.from_numpy(image), torch.from_numpy(label)
 
-## test dataloader
-# ds = MyDataset(paths=data_paths, train=False)
-# dl = DataLoader(ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
-# import matplotlib.pyplot as plt 
-# for image, label in dl:
-#     print(image.shape)
-#     print(label.shape)
-#     plt.subplot(1, 5, 1)
-#     plt.imshow(image[0, 0, 60], cmap="gray")
-#     plt.subplot(1, 5, 2)
-#     plt.imshow(image[0, 1, 60], cmap="gray")
-#     plt.subplot(1, 5, 3)
-#     plt.imshow(image[0, 2, 60], cmap="gray")
-#     plt.subplot(1, 5, 4)
-#     plt.imshow(image[0, 3, 60], cmap="gray")
-#     plt.subplot(1, 5, 5)
-#     plt.imshow(label[0, 0, 60], cmap="gray")
-#     plt.show()
-# os._exit(0)
 
 def test_model(net_1, val_loader, fold):
     # 训练完毕进行测试。
