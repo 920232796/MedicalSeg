@@ -19,7 +19,7 @@ from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
 from medical_seg.inferer import SlidingWindowInferer
-from utils import segmenation_metric, resample_image_array_size
+from medical_seg.helper import segmenation_metric, resample_image_array_size
 
 data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
 print(data_paths)
