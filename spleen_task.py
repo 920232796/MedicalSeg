@@ -34,7 +34,7 @@ random_state = np.random.RandomState(seed)
 set_seed(seed)
 lr = 0.0001
 device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
-epochs = 200
+epochs = 500
 model_name = "spleen_unet"
 spatial_size = (32, 256, 256)
 

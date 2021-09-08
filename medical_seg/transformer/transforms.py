@@ -6,8 +6,10 @@ from scipy.ndimage import rotate, map_coordinates, gaussian_filter
 import h5py
 import matplotlib.pyplot as plt 
 import torch 
-from .utils import generate_pos_neg_label_crop_centers
-
+from .utils import generate_pos_neg_label_crop_centers, \
+                    create_zero_centered_coordinate_mesh, \
+                    elastic_deform_coordinates, \
+                    interpolate_img, scale_coords
 class Random:
     def __init__(self, seed) -> None:
         self.seed = seed
@@ -150,6 +152,61 @@ class RandomRotate:
             label = rotate(label, angle, axes=axis, reshape=False, order=self.order, mode="nearest", cval=-1)
 
         return m, label
+
+class Elatic:
+    def __init__(self, random_state, alpha=(0., 900.), sigma=(9., 13.), scale=(0.85, 1.25), 
+                        order_seg=1, order_data=3, border_mode_seg="constant", 
+                        border_cval_seg=0) -> None:
+        self.random_state = random_state
+        self.alpha = alpha
+        self.sigma = sigma 
+        self.scale = scale 
+        self.order_seg = order_seg
+        self.order_data = order_data
+        self.border_mode_seg = border_mode_seg
+        self.border_cval_seg = border_cval_seg
+
+    def __call__(self, m, seg=None):
+        assert len(m.shape) == 4, "image dim 必须为4"
+        a = self.random_state.uniform(self.alpha[0], self.alpha[1])
+        s = self.random_state.uniform(self.sigma[0], self.sigma[1])
+
+        patch_size = m.shape[1:]
+        coords = create_zero_centered_coordinate_mesh(patch_size)
+        coords = elastic_deform_coordinates(coords, a, s, self.random_state)
+        dim = 3
+        if seg is not None:
+            seg_result = np.zeros((patch_size[0], patch_size[1], patch_size[2]),
+                                        dtype=np.float32)
+                            
+        data_result = np.zeros((m.shape[0], patch_size[0], patch_size[1], patch_size[2]),
+                                dtype=np.float32)
+        for d in range(dim):
+        
+            ctr = m.shape[d + 1] / 2. - 0.5
+            coords[d] += ctr
+        
+        if self.scale[0] < 1:
+            sc = self.random_state.uniform(self.scale[0], 1)
+        else :
+            sc = self.random_state.uniform(max(self.scale[0], 1), self.scale[1])
+        coords = scale_coords(coords, sc)
+
+        print(f"image1 shape is {m.shape}")
+        for channel_id in range(m.shape[0]):
+            data_result[channel_id] = interpolate_img(m[channel_id], coords, self.order_data,
+                                                                cval=0.0, is_seg=False)
+        if seg is not None:
+            
+            seg_result = interpolate_img(seg, coords, self.order_seg,
+                                                                    self.border_mode_seg, 
+                                                                    cval=self.border_cval_seg,
+                                                                    is_seg=True)
+
+        if seg is not None :
+            return data_result, seg_result
+        else :
+            return data_result
 
 
 class Standardize:

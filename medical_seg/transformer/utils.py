@@ -1,7 +1,46 @@
 
 import numpy as np 
 from typing import Optional, Union, Sequence, List
+from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import map_coordinates
 
+def create_zero_centered_coordinate_mesh(shape):
+        tmp = tuple([np.arange(i) for i in shape])
+        coords = np.array(np.meshgrid(*tmp, indexing='ij')).astype(float)
+        for d in range(len(shape)):
+            coords[d] -= ((np.array(shape).astype(float) - 1) / 2.)[d]
+        
+        return coords
+
+def elastic_deform_coordinates(coordinates, alpha, sigma, random_state):
+    n_dim = len(coordinates)
+    offsets = []
+    for _ in range(n_dim):
+        offsets.append(
+            gaussian_filter((random_state.random(coordinates.shape[1:]) * 2 - 1), sigma, mode="constant", cval=0) * alpha)
+    offsets = np.array(offsets)
+    indices = offsets + coordinates
+    return indices
+
+def interpolate_img(img, coords, order=3, mode='nearest', cval=0.0, is_seg=False):
+    if is_seg and order != 0:
+        unique_labels = np.unique(img)
+        result = np.zeros(coords.shape[1:], img.dtype)
+        for i, c in enumerate(unique_labels):
+            res_new = map_coordinates((img == c).astype(float), coords, order=order, mode=mode, cval=cval)
+            result[res_new >= 0.5] = c
+        return result
+    else:
+        return map_coordinates(img.astype(float), coords, order=order, mode=mode, cval=cval).astype(img.dtype)
+
+def scale_coords(coords, scale):
+    if isinstance(scale, (tuple, list, np.ndarray)):
+        assert len(scale) == len(coords)
+        for i in range(len(scale)):
+            coords[i] *= scale[i]
+    else:
+        coords *= scale
+    return coords
 
 def correct_crop_centers(
     centers: List[np.ndarray], spatial_size: Union[Sequence[int], int], label_spatial_shape: Sequence[int]
