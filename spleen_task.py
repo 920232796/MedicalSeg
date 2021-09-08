@@ -51,7 +51,7 @@ class Transform:
         self.random_state = random_state
         
         self.rf = RandomFlip(self.random_state, execution_probability=0.2)
-        self.rr = RandomRotate(self.random_state, angle_spectrum=30)
+        self.rr = RandomRotate(self.random_state, angle_spectrum=30, execution_probability=0.2)
         self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.2), execution_probability=0.2)
         self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.01), execution_probability=0.2)
 

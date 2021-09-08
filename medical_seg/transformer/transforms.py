@@ -2,6 +2,7 @@ from functools import total_ordering
 from operator import is_
 import numpy as np
 from typing import Callable, Iterable, List, Optional, Sequence, Tuple, Union
+from numpy import random
 from scipy.ndimage import rotate, map_coordinates, gaussian_filter
 import h5py
 import matplotlib.pyplot as plt 
@@ -86,7 +87,7 @@ class RandomFlip():
         Args:
             img: channel first array, must have shape: (num_channels, H[, W, ..., ]),
         """
-        if self.random_state.rand() > self.execution_probability:
+        if self.random_state.uniform() > self.execution_probability:
             ## 不去做变换
             return img, label
 
@@ -213,13 +214,14 @@ class Elatic:
         return data_result, seg_result
     def __call__(self, m, seg=None):
         assert len(m.shape) == 4, "image dim 必须为4"
+        
         if self.random_state.uniform() < self.execution_probability:
-            data_result, seg_result = self._do_elastic(m, seg=seg)
+            m, seg = self._do_elastic(m, seg=seg)
 
         if seg is not None :
-            return data_result, seg_result
+            return m, seg
         else :
-            return data_result
+            return m
 
 
 class Standardize:
@@ -525,19 +527,21 @@ class Normalize:
 
 
 class GammaTransformer:
-    def __init__(self, gamma_range=(0.5, 2), epsilon=1e-7, per_channel=False,
-                  retain_stats: Union[bool, Callable[[], bool]] = False) -> None:
+    def __init__(self, random_state, gamma_range=(0.5, 2), epsilon=1e-7, per_channel=False,
+                  retain_stats: Union[bool, Callable[[], bool]] = False, execution_probability=0.2) -> None:
         self.gamma_range = gamma_range
         self.epsilon = epsilon
         self.per_channel = per_channel
         self.retain_stats = retain_stats
-    
+        self.execution_probability = execution_probability
+        self.random_state = random_state
     def __call__(self, m):
+        if self.random_state.uniform() < self.execution_probability:
+
+            m = augment_gamma(m, gamma_range=self.gamma_range, epsilon=self.epsilon, 
+                                per_channel=self.per_channel, retain_stats=self.retain_stats)
         
-        image = augment_gamma(m, gamma_range=self.gamma_range, epsilon=self.epsilon, 
-                            per_channel=self.per_channel, retain_stats=self.retain_stats)
-    
-        return image
+        return m
     
 class MirrorTransform:
     """ Randomly mirrors data along specified axes. Mirroring is evenly distributed. Probability of mirroring along
@@ -548,7 +552,7 @@ class MirrorTransform:
 
     """
 
-    def __init__(self, random_state, axes=(0, 1, 2), execution_probability=0.3):
+    def __init__(self, random_state, axes=(0, 1, 2), execution_probability=0.2):
         self.execution_probability = execution_probability
         self.random_state = random_state
         self.axes = axes

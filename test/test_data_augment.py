@@ -1,10 +1,12 @@
 
 
+from medical_seg.transformer.transforms import RandomFlip, RandomRotate
 import numpy as np 
 import h5py
 from medical_seg.transformer import Normalize, RandomRotate90, Elatic, GammaTransformer, \
                                     MirrorTransform
 import matplotlib.pyplot as plt 
+plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']
 
 if __name__ == "__main__":
     
@@ -81,7 +83,7 @@ if __name__ == "__main__":
     # plt.show()
 
     rs = np.random.RandomState(777)
-    rr90 = RandomRotate90(rs)
+    
     index = 9
     image = h5py.File("./data/test.h5", "r")
     single_model_image = image["image"][:1]
@@ -92,29 +94,54 @@ if __name__ == "__main__":
     print(single_model_image.shape)
 
     plt.subplot(1, 2, 1)
+    plt.title("原始图像")
     plt.imshow(single_model_image[0, index], cmap="gray")
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
     plt.show()
 
+    rr90 = RandomRotate90(rs, execution_probability=1)
     image, label = rr90(single_model_image, label)
     plt.subplot(1, 2, 1)
+    plt.title("随机旋转90度")
     plt.imshow(image[0, index], cmap="gray")
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
     plt.show()
     print(f"image shape is {image.shape}")
-    elastic = Elatic(rs, order_seg=0)
-    image, label = elastic(image, seg=label)
+
+    rf = RandomFlip(rs, execution_probability=1)
+    image, label = rf(image, label)
     plt.subplot(1, 2, 1)
+    plt.title("随机翻转")
     plt.imshow(image[0, index], cmap="gray")
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
     plt.show()
 
-    gt = GammaTransformer()
+    rr = RandomRotate(rs, execution_probability=1)
+    image, label = rr(image, label=label)
+    plt.subplot(1, 2, 1)
+    plt.title("随机旋转一定角度")
+    plt.imshow(image[0, index], cmap="gray")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label[index], cmap="gray")
+    plt.show()
+
+
+    elastic = Elatic(rs, order_seg=0, execution_probability=1)
+    image, label = elastic(image, seg=label)
+    plt.subplot(1, 2, 1)
+    plt.title("随机弹性形变")
+    plt.imshow(image[0, index], cmap="gray")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label[index], cmap="gray")
+    plt.show()
+
+    gt = GammaTransformer(rs, execution_probability=1)
     image = gt(image)
     plt.subplot(1, 2, 1)
+    plt.title("随机gamma增强")
     plt.imshow(image[0, index], cmap="gray")
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
@@ -123,6 +150,7 @@ if __name__ == "__main__":
     mt = MirrorTransform(rs, execution_probability=1, axes=(0, 1, 2))
     image, label = mt(data=image, seg=label)
     plt.subplot(1, 2, 1)
+    plt.title("随机镜像翻转")
     plt.imshow(image[0, index], cmap="gray")
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
