@@ -2,7 +2,8 @@
 
 import numpy as np 
 import h5py
-from medical_seg.transformer import Normalize, RandomRotate90, Elatic, GammaTransformer
+from medical_seg.transformer import Normalize, RandomRotate90, Elatic, GammaTransformer, \
+                                    MirrorTransform
 import matplotlib.pyplot as plt 
 
 if __name__ == "__main__":
@@ -81,7 +82,7 @@ if __name__ == "__main__":
 
     rs = np.random.RandomState(777)
     rr90 = RandomRotate90(rs)
-    index = 10
+    index = 9
     image = h5py.File("./data/test.h5", "r")
     single_model_image = image["image"][:1]
     single_model_image = (single_model_image - single_model_image.min()) / (single_model_image.max() - single_model_image.min())
@@ -118,5 +119,15 @@ if __name__ == "__main__":
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
     plt.show()
+
+    mt = MirrorTransform(rs, execution_probability=1, axes=(0, 1, 2))
+    image, label = mt(data=image, seg=label)
+    plt.subplot(1, 2, 1)
+    plt.imshow(image[0, index], cmap="gray")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label[index], cmap="gray")
+    plt.show()
+
+
 
 

@@ -167,3 +167,31 @@ def augment_gamma(data_sample, gamma_range=(0.5, 2), epsilon=1e-7, per_channel=F
                 data_sample[c] = data_sample[c] + mn
     
     return data_sample
+
+
+def augment_mirroring(sample_data, random_state, sample_seg=None, axes=(0, 1, 2)):
+    if len(sample_seg.shape) == 3:
+        # add a dimension
+        sample_seg = np.expand_dims(sample_seg, axis=0)
+
+    if (len(sample_data.shape) != 3) and (len(sample_data.shape) != 4):
+        raise Exception(
+            "Invalid dimension for sample_data and sample_seg. sample_data and sample_seg should be either "
+            "[channels, x, y] or [channels, x, y, z]")
+    if 0 in axes and random_state.uniform() < 0.5:
+        sample_data[:, :] = sample_data[:, ::-1]
+        if sample_seg is not None:
+            sample_seg[:, :] = sample_seg[:, ::-1]
+    if 1 in axes and random_state.uniform() < 0.5:
+        sample_data[:, :, :] = sample_data[:, :, ::-1]
+        if sample_seg is not None:
+            sample_seg[:, :, :] = sample_seg[:, :, ::-1]
+    if 2 in axes and len(sample_data.shape) == 4:
+        if random_state.uniform() < 0.5:
+            sample_data[:, :, :, :] = sample_data[:, :, :, ::-1]
+            if sample_seg is not None:
+                sample_seg[:, :, :, :] = sample_seg[:, :, :, ::-1]
+    if len(sample_seg.shape) == 4:
+        sample_seg = np.squeeze(sample_seg, axis=0)
+        
+    return sample_data, sample_seg

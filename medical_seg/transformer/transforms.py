@@ -11,7 +11,7 @@ from .utils import generate_pos_neg_label_crop_centers, \
                     create_zero_centered_coordinate_mesh, \
                     elastic_deform_coordinates, \
                     interpolate_img, scale_coords,\
-                    augment_gamma
+                    augment_gamma, augment_mirroring
 class Random:
     def __init__(self, seed) -> None:
         self.seed = seed
@@ -528,15 +528,33 @@ class GammaTransformer:
     
         return image
     
-    
-    # if __name__ == "__main__":
-    # csc = CenterSpatialCrop(roi_size=(2, 2, 2))
+class MirrorTransform:
+    """ Randomly mirrors data along specified axes. Mirroring is evenly distributed. Probability of mirroring along
+    each axis is 0.5
 
-    # t1 = torch.rand(1, 4, 4, 4)
-    # print(t1)
-    # out = csc(t1)
-    # print(out)
-    
+    Args:
+        axes (tuple of int): axes along which to mirror
+
+    """
+
+    def __init__(self, random_state, axes=(0, 1, 2), execution_probability=0.3):
+        self.execution_probability = execution_probability
+        self.random_state = random_state
+        self.axes = axes
+        if max(axes) > 2:
+            raise ValueError("MirrorTransform now takes the axes as the spatial dimensions. What previously was "
+                             "axes=(2, 3, 4) to mirror along all spatial dimensions of a 5d tensor (b, c, x, y, z) "
+                             "is now axes=(0, 1, 2). Please adapt your scripts accordingly.")
+
+    def __call__(self, data, seg=None):
+        if self.random_state.uniform() < self.execution_probability:
+            
+            ret_val = augment_mirroring(data, self.random_state, sample_seg=seg, axes=self.axes)
+            data = ret_val[0]
+            if seg is not None:
+                seg = ret_val[1]
+        
+        return data, seg   
 
 # if __name__ == "__main__":
 #     print("数据增强函数测试")
