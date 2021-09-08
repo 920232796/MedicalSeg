@@ -2,7 +2,7 @@
 
 import numpy as np 
 import h5py
-from medical_seg.transformer import Normalize, RandomRotate90, Elatic
+from medical_seg.transformer import Normalize, RandomRotate90, Elatic, GammaTransformer
 import matplotlib.pyplot as plt 
 
 if __name__ == "__main__":
@@ -110,4 +110,13 @@ if __name__ == "__main__":
     plt.subplot(1, 2, 2)
     plt.imshow(label[index], cmap="gray")
     plt.show()
+
+    gt = GammaTransformer()
+    image = gt(image)
+    plt.subplot(1, 2, 1)
+    plt.imshow(image[0, index], cmap="gray")
+    plt.subplot(1, 2, 2)
+    plt.imshow(label[index], cmap="gray")
+    plt.show()
+
 

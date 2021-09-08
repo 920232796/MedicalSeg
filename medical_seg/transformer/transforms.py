@@ -5,11 +5,13 @@ from typing import Callable, Iterable, List, Optional, Sequence, Tuple, Union
 from scipy.ndimage import rotate, map_coordinates, gaussian_filter
 import h5py
 import matplotlib.pyplot as plt 
-import torch 
+import torch
+
 from .utils import generate_pos_neg_label_crop_centers, \
                     create_zero_centered_coordinate_mesh, \
                     elastic_deform_coordinates, \
-                    interpolate_img, scale_coords
+                    interpolate_img, scale_coords,\
+                    augment_gamma
 class Random:
     def __init__(self, seed) -> None:
         self.seed = seed
@@ -510,8 +512,24 @@ class Normalize:
         norm_0_1 = (m - self.min_value) / self.value_range
         return np.clip(2 * norm_0_1 - 1, -1, 1)
 
+
+class GammaTransformer:
+    def __init__(self, gamma_range=(0.5, 2), epsilon=1e-7, per_channel=False,
+                  retain_stats: Union[bool, Callable[[], bool]] = False) -> None:
+        self.gamma_range = gamma_range
+        self.epsilon = epsilon
+        self.per_channel = per_channel
+        self.retain_stats = retain_stats
     
-# if __name__ == "__main__":
+    def __call__(self, m):
+        
+        image = augment_gamma(m, gamma_range=self.gamma_range, epsilon=self.epsilon, 
+                            per_channel=self.per_channel, retain_stats=self.retain_stats)
+    
+        return image
+    
+    
+    # if __name__ == "__main__":
     # csc = CenterSpatialCrop(roi_size=(2, 2, 2))
 
     # t1 = torch.rand(1, 4, 4, 4)
