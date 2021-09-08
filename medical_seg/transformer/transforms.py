@@ -106,22 +106,23 @@ class RandomFlip():
         return result.astype(img.dtype)
 
 class RandomRotate90:
-    def __init__(self, random_state):
+    def __init__(self, random_state, execution_probability=0.2):
         self.random_state = random_state
-        # always rotate around z-axis
         self.axis = (1, 2)
+        self.execution_probability = execution_probability
 
     def __call__(self, m, label=None):
         assert m.ndim in [3, 4], 'Supports only 3D (DxHxW) or 4D (CxDxHxW) images'
         k = self.random_state.randint(0, 4)
         # rotate k times around a given plane
         assert m.ndim == 4, "输入必须为3d图像，第一个维度为channel"
-      
-        channels = [np.rot90(m[c], k, self.axis) for c in range(m.shape[0])]
-        m = np.stack(channels, axis=0)
-        if label is not None :
-            assert label.ndim == 3, "label shape 必须为三维"
-            label = np.rot90(label, k, self.axis)
+        if self.random_state.uniform() < self.execution_probability:
+
+            channels = [np.rot90(m[c], k, self.axis) for c in range(m.shape[0])]
+            m = np.stack(channels, axis=0)
+            if label is not None :
+                assert label.ndim == 3, "label shape 必须为三维"
+                label = np.rot90(label, k, self.axis)
 
         return m, label
 
@@ -131,34 +132,37 @@ class RandomRotate:
     Rotation axis is picked at random from the list of provided axes.
     """
 
-    def __init__(self, random_state, angle_spectrum=30, axes=None, mode='reflect', order=0):
+    def __init__(self, random_state, angle_spectrum=30, axes=None, mode='reflect', order=0, execution_probability=0.2):
         if axes is None:
             axes = [[2, 1]] # 这样就是以后两个维度为平面进行旋转。 第一个维度是深度
     
         self.random_state = random_state
         self.angle_spectrum = angle_spectrum
         self.axes = axes
+        self.execution_probability = execution_probability
         self.mode = mode
         self.order = order
 
     def __call__(self, m, label=None):
-        axis = self.axes[self.random_state.randint(len(self.axes))]
-        angle = self.random_state.randint(-self.angle_spectrum, self.angle_spectrum)
-        assert m.ndim == 4, "输入必须为3d图像，第一个维度为channel"
-        channels = [rotate(m[c], angle, axes=axis, reshape=False, order=self.order, mode=self.mode, cval=-1) for c
-                    in range(m.shape[0])]
-        m = np.stack(channels, axis=0)
+        if self.random_state.uniform() < self.execution_probability:
 
-        if label is not None :
-            assert label.ndim == 3, "label shape 必须为三维"
-            label = rotate(label, angle, axes=axis, reshape=False, order=self.order, mode="nearest", cval=-1)
+            axis = self.axes[self.random_state.randint(len(self.axes))]
+            angle = self.random_state.randint(-self.angle_spectrum, self.angle_spectrum)
+            assert m.ndim == 4, "输入必须为3d图像，第一个维度为channel"
+            channels = [rotate(m[c], angle, axes=axis, reshape=False, order=self.order, mode=self.mode, cval=-1) for c
+                        in range(m.shape[0])]
+            m = np.stack(channels, axis=0)
+
+            if label is not None :
+                assert label.ndim == 3, "label shape 必须为三维"
+                label = rotate(label, angle, axes=axis, reshape=False, order=self.order, mode="nearest", cval=-1)
 
         return m, label
 
 class Elatic:
     def __init__(self, random_state, alpha=(0., 900.), sigma=(9., 13.), scale=(0.85, 1.25), 
                         order_seg=1, order_data=3, border_mode_seg="constant", 
-                        border_cval_seg=0) -> None:
+                        border_cval_seg=0, execution_probability=0.2) -> None:
         self.random_state = random_state
         self.alpha = alpha
         self.sigma = sigma 
@@ -167,9 +171,11 @@ class Elatic:
         self.order_data = order_data
         self.border_mode_seg = border_mode_seg
         self.border_cval_seg = border_cval_seg
+        self.execution_probability = execution_probability
 
-    def __call__(self, m, seg=None):
-        assert len(m.shape) == 4, "image dim 必须为4"
+
+    
+    def _do_elastic(self, m, seg=None):
         a = self.random_state.uniform(self.alpha[0], self.alpha[1])
         s = self.random_state.uniform(self.sigma[0], self.sigma[1])
 
@@ -177,6 +183,7 @@ class Elatic:
         coords = create_zero_centered_coordinate_mesh(patch_size)
         coords = elastic_deform_coordinates(coords, a, s, self.random_state)
         dim = 3
+        seg_result = None 
         if seg is not None:
             seg_result = np.zeros((patch_size[0], patch_size[1], patch_size[2]),
                                         dtype=np.float32)
@@ -194,7 +201,6 @@ class Elatic:
             sc = self.random_state.uniform(max(self.scale[0], 1), self.scale[1])
         coords = scale_coords(coords, sc)
 
-        print(f"image1 shape is {m.shape}")
         for channel_id in range(m.shape[0]):
             data_result[channel_id] = interpolate_img(m[channel_id], coords, self.order_data,
                                                                 cval=0.0, is_seg=False)
@@ -204,6 +210,11 @@ class Elatic:
                                                                     self.border_mode_seg, 
                                                                     cval=self.border_cval_seg,
                                                                     is_seg=True)
+        return data_result, seg_result
+    def __call__(self, m, seg=None):
+        assert len(m.shape) == 4, "image dim 必须为4"
+        if self.random_state.uniform() < self.execution_probability:
+            data_result, seg_result = self._do_elastic(m, seg=seg)
 
         if seg is not None :
             return data_result, seg_result
