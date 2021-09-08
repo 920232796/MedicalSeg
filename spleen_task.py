@@ -18,7 +18,7 @@ from medical_seg.utils import set_seed
 from tqdm import tqdm
 from medical_seg.dataset import collate_fn
 from medical_seg.inferer import SlidingWindowInferer
-from medical_seg.helper import segmenation_metric, resample_image_array_size
+from medical_seg.utils import segmenation_metric, resample_image_array_size
 from medical_seg.evaluation import Metric, average_metric
 
 spleen_image_paths = glob.glob("./data/Task09_Spleen/imagesTr/*")
@@ -64,14 +64,14 @@ class Transform:
     def __call__(self, image, label):
         image, label = self.rf(image, label)
         image, label = self.rr(image, label)
-        image, label = self.elastic(m=image, seg=label)
+        # image, label = self.elastic(m=image, seg=label)
         image = self.gamma(image)
         image, label = self.mirror(image, seg=label)
-        image = self.ag(image)
-        image = self.ap(image)
+        # image = self.ag(image)
+        # image = self.ap(image)
         return image, label   
 
-class MyDataset(Dataset):
+class SpleenDataset(Dataset):
     def __init__(self, paths, train=True) -> None:
         super().__init__()
         self.paths = paths
@@ -83,35 +83,45 @@ class MyDataset(Dataset):
                                                     random_state=random_state)
         else :
             self.transform = None 
-            self.random_crop = None 
+            self.random_crop = None
+
+        self.cached_image = []
+        self.cached_label = []
+        for p in tqdm(self.paths, total=len(self.paths), desc="loading training data........"):
+            image, label = self._read_image(p)
+            sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
+            image = sd(image)
+            self.cached_image.append(image)
+            self.cached_label.append(label)
+        
 
     def __getitem__(self, i):
-        get_path = self.paths[i]
-        image, label = self._read_image(get_path)
+        
+        image, label = self.cached_image[i], self.cached_label[i]
         if image.shape[1] < 32:
             image_shape = image.shape
             out_size = (image_shape[0], 32, 256, 256)
             image = resample_image_array_size(image, out_size, order=3)
             label = resample_image_array_size(label, out_size=(32, 256, 256), order=0)
 
-
-        sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
-        image = sd(image)
+        if self.train:
+        
+            image_patchs = self.random_crop(image, label=label)
+            label_patchs = self.random_crop(label, label=label, is_label=True)
+            for i, imla in enumerate(zip(image_patchs, label_patchs)):
+                image_patchs[i], label_patchs[i] = self.transform(imla[0], imla[1])
+        else :
+            
+            assert len(image.shape) == 4, "image shape is must be 4."
+            assert len(label.shape) == 3, "label shape is must be 3."
+            image = [image]
+            label = [label]
 
         if self.train:
-            image, label = self.transform(image, label)
-        
-            if len(label.shape) == 3:
-                label = np.expand_dims(label, axis=0)
-            image = self.random_crop(image, label=label)
-            label = self.random_crop(label, label=label, is_label=True)
-        else :
-            if len(image.shape) == 3:
-                image = [[ image ]]
-                label = [[ label ]]
-            elif len(image.shape) == 4:
-                image = [image]
-                label = [[ label ]]
+            return {
+                "image": image_patchs,
+                "label": label_patchs
+            }
 
         return {
             "image": image, 
@@ -139,7 +149,6 @@ def test_model(net_1, val_loader):
         image = image.to(device)
         label = label.to(device)
         
-        label = label.squeeze(dim=1).long()
         with torch.no_grad():
            
             pred_1 = sliding_window_infer(image, network=net_1)
@@ -152,13 +161,13 @@ def test_model(net_1, val_loader):
 
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
-    train_ds = MyDataset(train_data_paths, train=True)
+    train_ds = SpleenDataset(train_data_paths, train=True)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     optimizer_1 = optim.Adam(net_1.parameters(), lr=lr, weight_decay=1e-5)
     net_1.to(device)
     criterion_1 = nn.CrossEntropyLoss(weight=torch.tensor([0.2, 0.8], device=device, dtype=torch.float32))
 
-    val_ds = MyDataset(test_data_paths, train=False)
+    val_ds = SpleenDataset(test_data_paths, train=False)
     val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
 
     for epoch in range(epochs):
@@ -174,7 +183,6 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             image = image.to(device)
             label = label.to(device)
             pred_1 = net_1(image)
-            label = label.squeeze(dim=1).long()
             hard_loss_1 = criterion_1(pred_1, label)
             epoch_loss_1 += hard_loss_1.item()
             hard_loss_1.backward()

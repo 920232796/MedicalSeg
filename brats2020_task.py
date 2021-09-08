@@ -19,7 +19,7 @@ from medical_seg.utils import set_seed
 from medical_seg.dataset import collate_fn
 from tqdm import tqdm
 from medical_seg.inferer import SlidingWindowInferer
-from medical_seg.helper import segmenation_metric, resample_image_array_size
+from medical_seg.utils import segmenation_metric, resample_image_array_size
 from medical_seg.evaluation import evaluate_BraTS_case, average_metric
 
 data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
