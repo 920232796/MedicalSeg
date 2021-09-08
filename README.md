@@ -8,6 +8,8 @@ Medical Image Segmentation Models，集成各种医学图像分割模型，主�
 3. 高斯噪声 AdditiveGaussianNoise
 4. 泊松噪声 AdditivePoissonNoise
 5. 随机旋转90度 RandomRotate90
+6. 随机弹性形变 Elastic
+
 ## 支持3D图像裁剪，两种方式
 
 由于3D图像通常较大，因此一个3D图像数据需要裁剪某几块进行训练
