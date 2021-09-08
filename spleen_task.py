@@ -11,7 +11,8 @@ import setproctitle
 import torch.nn as nn 
 from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
-                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
+                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, \
+                                    CenterSpatialCrop, Elatic, GammaTransformer, MirrorTransform
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from tqdm import tqdm
@@ -52,12 +53,20 @@ class Transform:
         
         self.rf = RandomFlip(self.random_state, execution_probability=0.2)
         self.rr = RandomRotate(self.random_state, angle_spectrum=30, execution_probability=0.2)
-        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.2), execution_probability=0.2)
-        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.01), execution_probability=0.2)
+        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.2), execution_probability=0.1)
+        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.01), execution_probability=0.1)
+        self.elastic = Elatic(self.random_state, alpha=(0, 900), sigma=(9, 13), 
+                                scale=(0.85, 1.25), order_seg=0, order_data=3,
+                                execution_probability=0.2)
+        self.gamma = GammaTransformer(self.random_state, gamma_range=(0.5, 2), execution_probability=0.2)
+        self.mirror = MirrorTransform(self.random_state, axes=(0, 1, 2), execution_probability=0.2)
 
     def __call__(self, image, label):
         image, label = self.rf(image, label)
         image, label = self.rr(image, label)
+        image, label = self.elastic(m=image, seg=label)
+        image = self.gamma(image)
+        image, label = self.mirror(image, seg=label)
         image = self.ag(image)
         image = self.ap(image)
         return image, label   
