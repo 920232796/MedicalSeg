@@ -9,6 +9,8 @@ Medical Image Segmentation Models，集成各种医学图像分割模型，主�
 4. 泊松噪声 AdditivePoissonNoise
 5. 随机旋转90度 RandomRotate90
 6. 随机弹性形变 Elastic
+7. Gamma增强 GammaTransformer
+
 
 ## 支持3D图像裁剪，两种方式
 
