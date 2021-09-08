@@ -13,7 +13,8 @@ import setproctitle
 import torch.nn as nn 
 from torch.utils.data import DataLoader, Dataset
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
-                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
+                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, \
+                                    CenterSpatialCrop, Elatic, GammaTransformer, MirrorTransform
 from medical_seg.networks import BasicUNet
 from medical_seg.utils import set_seed
 from medical_seg.dataset import collate_fn
@@ -53,22 +54,30 @@ class Transform:
     def __init__(self, random_state) -> None:
         self.random_state = random_state
         
-        self.rf = RandomFlip(self.random_state, execution_probability=0.1)
-        self.rr = RandomRotate(self.random_state, angle_spectrum=30)
-        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.1), execution_probability=0.1)
-        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.005), execution_probability=0.1)
+        self.rf = RandomFlip(self.random_state, execution_probability=0.2)
+        self.rr = RandomRotate(self.random_state, angle_spectrum=30, execution_probability=0.2)
+        self.elastic = Elatic(self.random_state, alpha=(0, 900), sigma=(9, 13), 
+                                scale=(0.85, 1.25), order_seg=0, order_data=3,
+                                execution_probability=0.2)
+        self.gamma = GammaTransformer(self.random_state, gamma_range=(0.5, 2), execution_probability=0.2)
+        self.mirror = MirrorTransform(self.random_state, axes=(0, 1, 2), execution_probability=0.2)
 
     def __call__(self, image, label):
         image, label = self.rf(image, label)
         image, label = self.rr(image, label)
-        image = self.ag(image)
-        image = self.ap(image)
+        # start = time.time()
+        # image, label = self.elastic(m=image, seg=label)
+        # end = time.time()
+        # print(f"elastic spend {end - start}")
+        image = self.gamma(image)
+        image, label = self.mirror(image, seg=label)
+    
         return image, label   
 
-class MyDataset(Dataset):
+class BraTSDataset(Dataset):
     def __init__(self, paths, train=True) -> None:
         super().__init__()
-        self.paths = paths
+        self.paths = paths[:4]
         self.train = train
         if train:
             self.transform = Transform(random_state=random_state)
@@ -77,29 +86,37 @@ class MyDataset(Dataset):
                                                     random_state=random_state)
         else :
             self.transform = None 
-            self.random_crop = None 
+            self.random_crop = None
+        self.cached_image = []
+        self.cached_label = []
+        for p in tqdm(self.paths, total=len(self.paths), desc="loading training data........"):
+            image, label = self._read_image(p)
+            sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
+            image = sd(image)
+            self.cached_image.append(image)
+            self.cached_label.append(label)
 
     def __getitem__(self, i):
-        get_path = self.paths[i]
-        image, label = self._read_image(get_path)
-
-        sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
-        image = sd(image)
+        image, label = self.cached_image[i], self.cached_label[i]
 
         if self.train:
-            image, label = self.transform(image, label)
         
-            if len(label.shape) == 3:
-                label = np.expand_dims(label, axis=0)
-            image = self.random_crop(image, label=label)
-            label = self.random_crop(label, label=label, is_label=True)
+            image_patchs = self.random_crop(image, label=label)
+            label_patchs = self.random_crop(label, label=label, is_label=True)
+            for i, imla in enumerate(zip(image_patchs, label_patchs)):
+                image_patchs[i], label_patchs[i] = self.transform(imla[0], imla[1])
         else :
-            if len(image.shape) == 3:
-                image = [[ image ]]
-                label = [[ label ]]
-            elif len(image.shape) == 4:
-                image = [image]
-                label = [[ label ]]
+            
+            assert len(image.shape) == 4, "image shape is must be 4."
+            assert len(label.shape) == 3, "label shape is must be 3."
+            image = [image]
+            label = [label]
+
+        if self.train:
+            return {
+                "image": image_patchs,
+                "label": label_patchs
+            }
 
         return {
             "image": image, 
@@ -136,7 +153,6 @@ def test_model(net_1, val_loader):
 
         image = image.to(device)
         label = label.to(device)
-        label = label.squeeze(dim=1).long()
         with torch.no_grad():
             pred_1 = sliding_window_infer(image, network=net_1)
             pred_1 = pred_1.argmax(dim=1)
@@ -147,13 +163,13 @@ def test_model(net_1, val_loader):
     return end_metric
 
 def main_train(net_1, train_data_paths, test_data_paths, k_fold):
-    train_ds = MyDataset(train_data_paths, train=True)
+    train_ds = BraTSDataset(train_data_paths, train=True)
     train_loader = DataLoader(train_ds, batch_size=1, shuffle=True, collate_fn=collate_fn)
     optimizer_1 = optim.Adam(net_1.parameters(), lr=lr, weight_decay=1e-5)
     net_1.to(device)
     criterion_1 = nn.CrossEntropyLoss()
 
-    val_ds = MyDataset(test_data_paths, train=False)
+    val_ds = BraTSDataset(test_data_paths, train=False)
     val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
 
     for epoch in range(epochs):
@@ -169,7 +185,6 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             image = image.to(device)
             label = label.to(device)
             pred_1 = net_1(image)
-            label = label.squeeze(dim=1).long()
             hard_loss_1 = criterion_1(pred_1, label)
             epoch_loss_1 += hard_loss_1.item()
             hard_loss_1.backward()
