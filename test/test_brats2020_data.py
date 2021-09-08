@@ -1,39 +1,66 @@
+from functools import total_ordering
 import matplotlib.pyplot as plt 
 
 import glob 
+from tqdm import tqdm
 import numpy as np 
 import torch 
 import SimpleITK as sitk 
 from medical_seg.transformer import RandomRotate, RandCropByPosNegLabel, RandomFlip, \
-                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, CenterSpatialCrop
+                                    AdditiveGaussianNoise, AdditivePoissonNoise, Standardize, \
+                                    CenterSpatialCrop, Elatic, MirrorTransform, GammaTransformer
 from torch.utils.data import DataLoader, Dataset
-
+import time 
 
 seed = 3213214325
 sample_size = 2
 random_state = np.random.RandomState(seed)
 spatial_size = (128, 128, 128)
 
+
 class Transform:
     def __init__(self, random_state) -> None:
         self.random_state = random_state
         
-        self.rf = RandomFlip(self.random_state, execution_probability=0.1)
-        self.rr = RandomRotate(self.random_state, angle_spectrum=30)
-        self.ag = AdditiveGaussianNoise(self.random_state, scale=(0, 0.1), execution_probability=0.1)
-        self.ap = AdditivePoissonNoise(self.random_state, lam=(0, 0.005), execution_probability=0.1)
+        self.rf = RandomFlip(self.random_state, execution_probability=1)
+        self.rr = RandomRotate(self.random_state, angle_spectrum=30, execution_probability=1)
+        self.elastic = Elatic(self.random_state, alpha=(0, 900), sigma=(9, 13), 
+                                scale=(0.85, 1.25), order_seg=0, order_data=3,
+                                execution_probability=1)
+        self.gamma = GammaTransformer(self.random_state, gamma_range=(0.5, 2), execution_probability=1)
+        self.mirror = MirrorTransform(self.random_state, axes=(0, 1, 2), execution_probability=1)
 
     def __call__(self, image, label):
+        start = time.time()
         image, label = self.rf(image, label)
+        end = time.time()
+        print(f"rf spend {end - start}")
+        start = time.time()
         image, label = self.rr(image, label)
-        image = self.ag(image)
-        image = self.ap(image)
+        end = time.time()
+        print(f"rr spend {end - start}")
+
+        # start = time.time()
+        # image, label = self.elastic(m=image, seg=label)
+        # end = time.time()
+        # print(f"elastic spend {end - start}")
+
+        start = time.time()
+        # image, label = self.elastic(m=image, seg=label)
+        image = self.gamma(image)
+        end = time.time()
+        print(f"gamma spend {end - start}")
+        start = time.time()
+        image, label = self.mirror(image, seg=label)
+        end = time.time()
+        print(f"mirror spend {end - start}")
+       
         return image, label   
 
-class MyDataset(Dataset):
+class BraTSDataset(Dataset):
     def __init__(self, paths, train=True) -> None:
         super().__init__()
-        self.paths = paths
+        self.paths = paths[:4]
         self.train = train
         if train:
             self.transform = Transform(random_state=random_state)
@@ -42,29 +69,37 @@ class MyDataset(Dataset):
                                                     random_state=random_state)
         else :
             self.transform = None 
-            self.random_crop = None 
+            self.random_crop = None
+        self.cached_image = []
+        self.cached_label = []
+        for p in tqdm(self.paths, total=len(self.paths), desc="loading training data........"):
+            image, label = self._read_image(p)
+            sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
+            image = sd(image)
+            self.cached_image.append(image)
+            self.cached_label.append(label)
 
     def __getitem__(self, i):
-        get_path = self.paths[i]
-        image, label = self._read_image(get_path)
-
-        sd = Standardize(a_min=image.min(), a_max=image.max(), b_min=0, b_max=1, clip=True)
-        image = sd(image)
+        image, label = self.cached_image[i], self.cached_label[i]
 
         if self.train:
-            image, label = self.transform(image, label)
         
-            if len(label.shape) == 3:
-                label = np.expand_dims(label, axis=0)
-            image = self.random_crop(image, label=label)
-            label = self.random_crop(label, label=label, is_label=True)
+            image_patchs = self.random_crop(image, label=label)
+            label_patchs = self.random_crop(label, label=label, is_label=True)
+            for i, imla in enumerate(zip(image_patchs, label_patchs)):
+                image_patchs[i], label_patchs[i] = self.transform(imla[0], imla[1])
         else :
-            if len(image.shape) == 3:
-                image = [[ image ]]
-                label = [[ label ]]
-            elif len(image.shape) == 4:
-                image = [image]
-                label = [[ label ]]
+            
+            assert len(image.shape) == 4, "image shape is must be 4."
+            assert len(label.shape) == 3, "label shape is must be 3."
+            image = [image]
+            label = [label]
+
+        if self.train:
+            return {
+                "image": image_patchs,
+                "label": label_patchs
+            }
 
         return {
             "image": image, 
@@ -104,14 +139,13 @@ def collate_fn(batch):
     return torch.from_numpy(image), torch.from_numpy(label)
 
 
-
 if __name__ == "__main__":
     data_paths = sorted(glob.glob("./data/MICCAI_BraTS2020_TrainingData/*"))[:-2]
     print(data_paths)
     train_paths = data_paths[:315]
     val_paths = data_paths[315:]
     ## test dataloader
-    ds = MyDataset(paths=data_paths, train=False)
+    ds = BraTSDataset(paths=data_paths, train=True)
     dl = DataLoader(ds, batch_size=1, shuffle=False, collate_fn=collate_fn)
     import matplotlib.pyplot as plt 
     for image, label in dl:
@@ -126,5 +160,5 @@ if __name__ == "__main__":
         plt.subplot(1, 5, 4)
         plt.imshow(image[0, 3, 60], cmap="gray")
         plt.subplot(1, 5, 5)
-        plt.imshow(label[0, 0, 60], cmap="gray")
+        plt.imshow(label[0, 60], cmap="gray")
         plt.show()

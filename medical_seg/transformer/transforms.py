@@ -496,19 +496,27 @@ class RandCropByPosNegLabel:
             label = self.label
         if label is None:
             raise ValueError("label should be provided.")
+        if len(label.shape) == 3:
+            label = np.expand_dims(label, axis=0)
         if image is None:
             image = self.image
 
         if not is_label:
             self.randomize(label, image)
+        else :
+            if len(img.shape) == 3:
+                img = np.expand_dims(img, axis=0)
         results: List[np.ndarray] = []
         if self.centers is not None:
             for center in self.centers:
                 cropper = SpatialCrop(roi_center=tuple(center), roi_size=self.spatial_size)  # type: ignore
                 r = cropper(img)
+                if is_label:
+                    if len(r.shape) == 4:
+                        r = np.squeeze(r, axis=0)
                 results.append(r)
-                
-
+       
+        
         return results
 
 class Normalize:
