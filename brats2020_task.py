@@ -37,7 +37,7 @@ set_seed(seed)
 lr = 0.0001
 device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 epochs = 500
-model_name = "spleen_unet"
+model_name = "brats_unet"
 spatial_size = (128, 128, 128)
 
 sliding_window_infer = SlidingWindowInferer(roi_size=spatial_size, sw_batch_size=2, overlap=0.5)
