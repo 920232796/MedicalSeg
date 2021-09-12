@@ -256,7 +256,32 @@ class BasicUNet(nn.Module):
         return logits, uncer_out
 
 
+    def down_pass(self, x):
+        x0 = self.conv_0(x)
 
+        self.x1 = self.down_1(x0)
+        self.x2 = self.down_2(self.x1)
+        self.x3 = self.down_3(self.x2)
+        self.x4 = self.down_4(self.x3)
+        
+
+    def up_pass(self):
+
+        u4 = self.upcat_4(self.x4, self.x3)
+        u3 = self.upcat_3(u4, self.x2)
+        u2 = self.upcat_2(u3, self.x1)
+        u1 = self.upcat_1(u2, self.x0)
+
+        logits = self.final_conv(u1)
+        return logits
+
+    def uncer_pass(self, logits):
+        uncer_out = self.drop(logits).detach() # 去掉梯度
+        uncer_out = torch.softmax(uncer_out, dim=1)
+
+        uncer_out = torch.sum(-uncer_out * torch.log(uncer_out), dim=1, keepdim=True)
+
+        return uncer_out
 
 
 BasicUnet = Basicunet = BasicUNet
