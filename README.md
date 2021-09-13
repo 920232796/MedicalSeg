@@ -39,6 +39,7 @@ Medical Image Segmentation Models，集成各种医学图像分割模型，主�
 12. U2Net
 13. SENet
 14. UNet++
+15. MultiResNet
 
 部分模型还没经过测试，欢迎测试使用。
 
