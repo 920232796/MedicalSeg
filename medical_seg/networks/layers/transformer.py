@@ -427,9 +427,9 @@ if __name__ == '__main__':
 
     # print(out.shape)
 
-    t1 = torch.rand(1, 2, 32, 32, 32)
+    t1 = torch.rand(1, 2, 16, 16, 16)
 
-    net = TransformerLayer(2, 5, (1, 1, 1), (32, 32, 32), mlp_size=128)
+    net = TransformerLayerMulti(2, 5, (1, 1, 1), (16, 16, 16), mlp_size=128, num_layers=2)
 
 
     out = net(t1)
