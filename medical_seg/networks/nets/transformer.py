@@ -1,4 +1,4 @@
-from layers.transformer import get_config, Embeddings, BlockMulti
+from medical_seg.networks.layers.transformer import get_config, Embeddings, BlockMulti
 import torch.nn as nn 
 
 class TransformerLayers(nn.Module):
