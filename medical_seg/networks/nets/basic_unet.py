@@ -199,7 +199,7 @@ class BasicUNet(nn.Module):
         self.down_3 = Down(dimensions, fea[2], fea[3], act, norm, dropout, pool_size=pool_size)
         self.down_4 = Down(dimensions, fea[3], fea[4], act, norm, dropout, pool_size=pool_size)
 
-        self.upcat_4 = UpCat(dimensions, fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size)
+        self.upcat_4 = UpCat(dimensions, 2*fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_3 = UpCat(dimensions, fea[3], fea[2], fea[2], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_2 = UpCat(dimensions, fea[2], fea[1], fea[1], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_1 = UpCat(dimensions, fea[1], fea[0], fea[5], act, norm, dropout, upsample, halves=False, pool_size=pool_size)
@@ -257,17 +257,17 @@ class BasicUNet(nn.Module):
 
 
     def down_pass(self, x):
-        x0 = self.conv_0(x)
+        self.x0 = self.conv_0(x)
 
-        self.x1 = self.down_1(x0)
+        self.x1 = self.down_1(self.x0)
         self.x2 = self.down_2(self.x1)
         self.x3 = self.down_3(self.x2)
         self.x4 = self.down_4(self.x3)
         
 
-    def up_pass(self):
-
-        u4 = self.upcat_4(self.x4, self.x3)
+    def up_pass(self, fusion_out):
+        x4_fusion = torch.cat([self.x4, fusion_out], dim=1)
+        u4 = self.upcat_4(x4_fusion, self.x3)
         u3 = self.upcat_3(u4, self.x2)
         u2 = self.upcat_2(u3, self.x1)
         u1 = self.upcat_1(u2, self.x0)
