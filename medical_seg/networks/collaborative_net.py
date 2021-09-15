@@ -6,14 +6,13 @@ from medical_seg.networks.nets.transformer import TransformerLayers
 import torch.nn.functional as F 
 
 class CoNet(nn.Module):
-    def __init__(self, model_num, in_channels=1, out_channels=1):
+    def __init__(self, model_num, out_channels=1):
         super().__init__()
-        self.in_channels = in_channels
         self.out_channels = out_channels
         self.model_num = model_num
         self.unets = []
         for i in range(model_num):
-            unet = BasicUNet(dimensions=3, in_channels=self.in_channels, 
+            unet = BasicUNet(dimensions=3, in_channels=1, 
                             out_channels=self.out_channels, features=[16, 16, 32, 64, 128, 16])
             self.unets.append(unet)
 
