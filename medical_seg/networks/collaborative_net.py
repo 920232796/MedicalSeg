@@ -21,31 +21,36 @@ class CoNet(nn.Module):
 
     def forward(self, x):
 
-        assert x.shape[1] == self.mode_num, "输入模态不一致，请检查"
+        assert x.shape[1] == self.model_num, "输入模态不一致，请检查"
         x_down = []
-        for i in range(self.mode_num):
-            x_down.append(self.unets[i].down_pass(x[:, i]))
+        for i in range(self.model_num):
+            x_i = x[:, i].unsqueeze(dim=1)
+            self.unets[i].down_pass(x_i)
+            x_down.append(self.unets[i].x4)
         
         ## fusion
         fusion_down = self.fusion_layer(torch.cat(x_down, dim=1))
 
         logits = []
         uncers = []
-        for i in range(self.mode_num):
+        for i in range(self.model_num):
             logit = self.unets[i].up_pass(fusion_down)
             logits.append(logit)
             uncer = self.unets[i].uncer_pass(logit)
             uncers.append(uncer)
         
-        logits = torch.cat(logits, dim=1)
-        uncers = torch.cat(uncers, dim=1)
+        logits = torch.stack(logits, dim=1) ## (1, model_num, out_channels, 32, 256, 256)
+        uncers = torch.cat(uncers, dim=1) ## (1, model_num, 32, 256, 256) 
         uncers = uncers.argmax(dim=1)
 
-        uncers = F.one_hot(uncers, num_classes=logits.shape[1])##(1, 32, 256, 256, 2)
+        uncers = F.one_hot(uncers, num_classes=logits.shape[1])##(1, 32, 256, 256, model_num)
         uncers = uncers.permute(0, 4, 1, 2, 3)
+        uncers = uncers.unsqueeze(dim=2)
+        
         out_teacher = (logits * uncers).sum(dim=1)
 
-        return out_teacher
+        return out_teacher, logits
+
 
 
 
@@ -71,14 +76,11 @@ class CoTNet(nn.Module):
         x_down = []
         for i in range(self.model_num):
             x_i = x[:, i].unsqueeze(dim=1)
-            # print(f"x_i shape is {x_i.shape}")
             self.unets[i].down_pass(x_i)
             x_down.append(self.unets[i].x4)
         
         ## fusion
-        # print(torch.cat(x_down, dim=1).shape)
         fusion_down = self.fusion_layer(torch.cat(x_down, dim=1))
-        # print(fusion_down.shape)
 
         logits = []
         uncers = []
@@ -89,9 +91,7 @@ class CoTNet(nn.Module):
             uncers.append(uncer)
         
         logits = torch.stack(logits, dim=1) ## (1, model_num, out_channels, 32, 256, 256)
-        # print(logits.shape)
         uncers = torch.cat(uncers, dim=1) ## (1, model_num, 32, 256, 256) 
-        # print(uncers.shape)
         uncers = uncers.argmax(dim=1)
 
         uncers = F.one_hot(uncers, num_classes=logits.shape[1])##(1, 32, 256, 256, model_num)
