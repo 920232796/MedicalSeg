@@ -6,7 +6,7 @@ import torch
 import ml_collections
 
 
-def get_config(in_channels, out_channels, patch_size, img_size, mlp_dim=256):
+def get_config(in_channels, out_channels, img_size=(1, 1, 1), patch_size=(1, 1, 1),  mlp_dim=256):
     config = ml_collections.ConfigDict()
     config.in_channels = in_channels
     config.hidden_size = out_channels
