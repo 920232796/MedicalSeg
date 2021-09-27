@@ -199,7 +199,7 @@ class BasicUNet(nn.Module):
         self.down_3 = Down(dimensions, fea[2], fea[3], act, norm, dropout, pool_size=pool_size)
         self.down_4 = Down(dimensions, fea[3], fea[4], act, norm, dropout, pool_size=pool_size)
 
-        self.upcat_4 = UpCat(dimensions, fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size)
+        self.upcat_4 = UpCat(dimensions, 2*fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_3 = UpCat(dimensions, fea[3], fea[2], fea[2], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_2 = UpCat(dimensions, fea[2], fea[1], fea[1], act, norm, dropout, upsample, pool_size=pool_size)
         self.upcat_1 = UpCat(dimensions, fea[1], fea[0], fea[5], act, norm, dropout, upsample, halves=False, pool_size=pool_size)

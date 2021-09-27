@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from general import ConfusionMatrix, ALL_METRICS
+from .general import ConfusionMatrix, ALL_METRICS
 import numpy as np 
 
 class Metric:

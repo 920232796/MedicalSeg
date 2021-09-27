@@ -29,8 +29,8 @@ train_paths = data_paths[:315]
 val_paths = data_paths[315:]
 
 seed = 3213214325
-in_channels = 1
-out_channels = 2
+in_channels = 4
+out_channels = 4
 sample_size = 2
 random_state = np.random.RandomState(seed)
 set_seed(seed)
@@ -191,7 +191,7 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             optimizer_1.step()
 
         print(f"epoch_loss_1 is {epoch_loss_1}")
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 1 == 0:
               # 保存模型
             save_path = f"{model_save_dir}model_{k_fold}_epoch_{epoch}.bin"
             torch.save(net_1.state_dict(), save_path)
@@ -203,12 +203,11 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
 
 if __name__ == "__main__":
    
-    model = BasicUNet(dimensions=3, in_channels=in_channels, out_channels=out_channels, features=[16, 16, 32, 64, 128, 16])
+    model = BasicUNet(dimensions=3, in_channels=in_channels, out_channels=out_channels, features=[16, 16, 32, 32, 64, 16])
     
-    metric_fold = main_train(model, train_data_paths=train_paths, test_data_paths=val_paths)
+    metric_fold = main_train(model, train_data_paths=train_paths, test_data_paths=val_paths, k_fold=1)
     with open(model_save_dir + "res.txt", "a+") as f:
         f.write(f"res is {metric_fold}")
-
         f.write("\n")
     
 
