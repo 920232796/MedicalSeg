@@ -41,7 +41,7 @@ def compute_BraTS_HD95(ref, pred):
     elif num_pred == 0 and num_ref != 0:
         return 373.12866
     else:
-        return hd95(pred, ref, (1, 1, 1))
+        return hd95(pred, ref, (1, 1, 1, 1))
 
 
 def evaluate_BraTS_case(arr: np.ndarray, arr_gt: np.ndarray):

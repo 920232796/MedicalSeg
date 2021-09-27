@@ -26,5 +26,5 @@ def collate_fn(batch):
     image = np.array(image, dtype=np.float32)
     label = np.array(label, dtype=np.int16)
 
-    return torch.from_numpy(image), torch.from_numpy(label)
+    return torch.from_numpy(image), torch.from_numpy(label).long()
 

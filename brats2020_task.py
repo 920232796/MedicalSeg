@@ -35,7 +35,8 @@ sample_size = 2
 random_state = np.random.RandomState(seed)
 set_seed(seed)
 lr = 0.0001
-device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 epochs = 500
 model_name = "brats_unet"
 spatial_size = (128, 128, 128)
@@ -135,6 +136,7 @@ class BraTSDataset(Dataset):
                 # 找到seg文件
                 label = sitk.ReadImage(p)
                 label = sitk.GetArrayFromImage(label)
+                label[label == 4] = 3
             else :
                 image = sitk.ReadImage(p)
                 image = sitk.GetArrayFromImage(image)
@@ -156,7 +158,7 @@ def test_model(net_1, val_loader):
         with torch.no_grad():
             pred_1 = sliding_window_infer(image, network=net_1)
             pred_1 = pred_1.argmax(dim=1)
-            end_metric.append(evaluate_BraTS_case(pred_1, label))
+            end_metric.append(evaluate_BraTS_case(pred_1.cpu().numpy(), label.cpu().numpy()))
         
     end_metric = average_metric(end_metric)
    
@@ -179,7 +181,7 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
 
         epoch_loss_1 = 0.0
         for image, label in tqdm(train_loader, total=len(train_loader)):
-
+            # print(np.unique(label.numpy()))
             optimizer_1.zero_grad()
 
             image = image.to(device)
@@ -196,7 +198,8 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
             save_path = f"{model_save_dir}model_{k_fold}_epoch_{epoch}.bin"
             torch.save(net_1.state_dict(), save_path)
             print(f"模型保存成功: {save_path}")
-
+            metric = test_model(net_1=net_1, val_loader=val_loader)
+            print(f"metric is {metric}")
     metric = test_model(net_1=net_1, val_loader=val_loader)
 
     return metric 

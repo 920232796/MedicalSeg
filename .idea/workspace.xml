@@ -4,8 +4,8 @@
     <list default="true" id="70913ce8-2e81-4a0a-96ac-febf920fd4bb" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/brats2020_task.py" beforeDir="false" afterPath="$PROJECT_DIR$/brats2020_task.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/networks/collaborative_net.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/networks/collaborative_net.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/medical_seg/networks/nets/transformer.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/networks/nets/transformer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/medical_seg/dataset/helper.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/dataset/helper.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/medical_seg/evaluation/brats.py" beforeDir="false" afterPath="$PROJECT_DIR$/medical_seg/evaluation/brats.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,11 +41,12 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/medical_seg/loss" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/medical_seg/networks/nets" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/medical_seg/networks/nets" />
       <recent name="$PROJECT_DIR$/medical_seg/loss" />
     </key>
   </component>
