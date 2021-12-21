@@ -1,7 +1,6 @@
 ## 数据 brats 2020 数据 引入 自定义Dataset类
 import glob
 import os
-from random import random, randrange 
 import SimpleITK as sitk
 import numpy as np
 import torch 
@@ -9,8 +8,6 @@ from torch import optim
 import setproctitle
 import torch.nn as nn
 import SimpleITK as sitk
-from torch.optim import lr_scheduler
-from monai.utils import set_determinism
 from medical_seg.networks import BasicUNet
 from medical_seg.loss.dice_loss import DiceLoss
 from medical_seg.dataset.dataset import DataLoader3D, Dataset3D
@@ -170,7 +167,7 @@ def main_train(net_1, train_data_paths, test_data_paths, k_fold):
     trainer = Trainer(network=net_1, train_loader=train_loader, val_loader=val_loader, 
                         optimizer=optimizer_1, loss_func=loss_func, metric=metric, 
                         sliding_window_infer=sliding_window_infer, val_internal=val_internal, 
-                        epochs=300, k_fold=k_fold, is_show_image=False, device=device, model_save_dir=model_save_dir,
+                        epochs=epochs, k_fold=k_fold, is_show_image=False, device=device, model_save_dir=model_save_dir,
                         lr_scheduler=lr_scheduler, start_val=start_val, task_name=model_name)
 
     end_metric, best_metric = trainer.train()
