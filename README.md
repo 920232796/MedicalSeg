@@ -2,7 +2,7 @@
 Medical Image Segmentation Models，集成各种医学图像分割模型，主要是3D，持续更新...
 1. 目前例子有BraTS2020数据集的训练代码，如果切换别的数据集，只需要写好自定义Dataset里面的 ```_load_cache_item```函数即可。
 2. 目前训练与验证方式采用标准的3D医学图像处理方式，训练为随机Crop N个patch作为输入，进行训练；验证使用滑窗推理进行模型的预测。
-3， 数据增强方式具体看example代码，支持多种数据增强。
+3. 数据增强方式具体看example代码，支持多种数据增强。
 
 ## 支持3D图像数据增强
 
@@ -45,6 +45,7 @@ Medical Image Segmentation Models，集成各种医学图像分割模型，主�
 15. MultiResNet
 16. SwinUNet https://arxiv.org/pdf/2105.05537.pdf 预训练参数地址：https://drive.google.com/drive/folders/1UC3XOoezeum0uck4KBVGa8osahs6rKUY?usp=sharing
 17. UNETR https://arxiv.org/pdf/2103.10504.pdf
+18. PoolFormer https://arxiv.org/pdf/2111.11418.pdf
 
 部分模型还没经过测试，欢迎测试使用。
 
