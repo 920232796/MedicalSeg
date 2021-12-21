@@ -1,5 +1,6 @@
 
 from typing import Callable, Sequence, Union
+from numpy.lib.type_check import mintypecode
 
 import torch
 
@@ -59,6 +60,8 @@ class SlidingWindowInferer:
         cval: float = 0.0,
         sw_device: Union[torch.device, str, None] = None,
         device: Union[torch.device, str, None] = None,
+        do_mirror = False,
+        mirror_axes = None,
     ) -> None:
 
         self.roi_size = roi_size
@@ -70,6 +73,8 @@ class SlidingWindowInferer:
         self.cval = cval
         self.sw_device = sw_device
         self.device = device
+        self.do_mirror = do_mirror
+        self.mirror_axes = mirror_axes
 
     def __call__(self, inputs: torch.Tensor, network: Callable[[torch.Tensor], torch.Tensor], pred_type="forward") -> torch.Tensor:
         """
@@ -92,5 +97,7 @@ class SlidingWindowInferer:
             cval=self.cval,
             sw_device=self.sw_device,
             device=self.device,
-            pred_type=pred_type
+            pred_type=pred_type,
+            do_mirror=self.do_mirror,
+            mirror_axes=self.mirror_axes,
         )

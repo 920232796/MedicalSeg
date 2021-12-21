@@ -171,7 +171,7 @@ class PatchMerging(nn.Module):
         b, c, h, w, d = x.shape
         x = x.squeeze(0) # 去掉batch 维度
         new_h, new_w, new_d = h // self.downscaling_factor[0], w // self.downscaling_factor[1], d//self.downscaling_factor[2]
-        # x = self.patch_merge(x).view(b, -1, new_h, new_w, new_d).permute(1, 2, 3, 0)
+
         x = x.unfold(1, self.downscaling_factor[0], self.downscaling_factor[0])\
             .unfold(2, self.downscaling_factor[1], self.downscaling_factor[1])\
             .unfold(3, self.downscaling_factor[2], self.downscaling_factor[2])
@@ -179,6 +179,7 @@ class PatchMerging(nn.Module):
         x = x.view((new_h, new_w, new_d, -1))
         x = x.unsqueeze(0)
         x = self.linear(x)
+        # print(x.shape)
         return x
 
 # class PatchMerging(nn.Module):
@@ -299,7 +300,7 @@ if __name__ == '__main__':
     # out = get_relative_distances((3, 3, 3))
     # print(out.shape)
     import torch
-    model = StageModule(in_channels=3, hidden_dimension=64, layers=2, patch_size=(1, 2, 2), num_heads=8, head_dim=4, window_size=(4, 8, 8), relative_pos_embedding=True)
+    model = StageModule(in_channels=3, hidden_dimension=64, layers=2, downscaling_factor=(1, 2, 2), num_heads=8, head_dim=4, window_size=(4, 8, 8), relative_pos_embedding=True)
     t1 = torch.rand((1, 3, 32, 64, 64))
 
     out = model(t1)

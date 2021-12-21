@@ -81,13 +81,13 @@ class BraTSDataset(Dataset):
 
     def __getitem__(self, i):
         image, label = self.cached_image[i], self.cached_label[i]
-
-        if self.train:
         
+        if self.train:
+            image, label = self.transform(image, label)
             image_patchs = self.random_crop(image, label=label)
             label_patchs = self.random_crop(label, label=label, is_label=True)
-            for i, imla in enumerate(zip(image_patchs, label_patchs)):
-                image_patchs[i], label_patchs[i] = self.transform(imla[0], imla[1])
+            # for i, imla in enumerate(zip(image_patchs, label_patchs)):
+            #     image_patchs[i], label_patchs[i] = self.transform(imla[0], imla[1])
         else :
             
             assert len(image.shape) == 4, "image shape is must be 4."

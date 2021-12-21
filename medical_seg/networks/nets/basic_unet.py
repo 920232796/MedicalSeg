@@ -144,7 +144,7 @@ class BasicUNet(nn.Module):
         norm: Union[str, tuple] = ("instance", {"affine": True}),
         dropout: Union[float, tuple] = 0.0,
         upsample: str = "deconv",
-        pool_size = (2, 2, 2),
+        pool_size = [(2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)],
     ):
         """
         A UNet implementation with 1D/2D/3D supports.
@@ -194,15 +194,15 @@ class BasicUNet(nn.Module):
         print(f"BasicUNet features: {fea}.")
         self.drop = nn.Dropout()
         self.conv_0 = TwoConv(dimensions, in_channels, features[0], act, norm, dropout)
-        self.down_1 = Down(dimensions, fea[0], fea[1], act, norm, dropout, pool_size=pool_size)
-        self.down_2 = Down(dimensions, fea[1], fea[2], act, norm, dropout, pool_size=pool_size)
-        self.down_3 = Down(dimensions, fea[2], fea[3], act, norm, dropout, pool_size=pool_size)
-        self.down_4 = Down(dimensions, fea[3], fea[4], act, norm, dropout, pool_size=pool_size)
+        self.down_1 = Down(dimensions, fea[0], fea[1], act, norm, dropout, pool_size=pool_size[0])
+        self.down_2 = Down(dimensions, fea[1], fea[2], act, norm, dropout, pool_size=pool_size[1])
+        self.down_3 = Down(dimensions, fea[2], fea[3], act, norm, dropout, pool_size=pool_size[2])
+        self.down_4 = Down(dimensions, fea[3], fea[4], act, norm, dropout, pool_size=pool_size[3])
 
-        self.upcat_4 = UpCat(dimensions, fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size)
-        self.upcat_3 = UpCat(dimensions, fea[3], fea[2], fea[2], act, norm, dropout, upsample, pool_size=pool_size)
-        self.upcat_2 = UpCat(dimensions, fea[2], fea[1], fea[1], act, norm, dropout, upsample, pool_size=pool_size)
-        self.upcat_1 = UpCat(dimensions, fea[1], fea[0], fea[5], act, norm, dropout, upsample, halves=False, pool_size=pool_size)
+        self.upcat_4 = UpCat(dimensions, fea[4], fea[3], fea[3], act, norm, dropout, upsample, pool_size=pool_size[3])
+        self.upcat_3 = UpCat(dimensions, fea[3], fea[2], fea[2], act, norm, dropout, upsample, pool_size=pool_size[2])
+        self.upcat_2 = UpCat(dimensions, fea[2], fea[1], fea[1], act, norm, dropout, upsample, pool_size=pool_size[1])
+        self.upcat_1 = UpCat(dimensions, fea[1], fea[0], fea[5], act, norm, dropout, upsample, halves=False, pool_size=pool_size[0])
 
         self.final_conv = Conv["conv", dimensions](fea[5], out_channels, kernel_size=1)
 

@@ -268,7 +268,6 @@ class BasicUNetOneStream(nn.Module):
         act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": True}),
         norm: Union[str, tuple] = ("instance", {"affine": True}),
         dropout: Union[float, tuple] = 0.0,
-        upsample: str = "deconv",
     ):
         """
         A UNet implementation with 1D/2D/3D supports.
@@ -353,3 +352,46 @@ class BasicUNetOneStream(nn.Module):
 
         logits = self.final_conv(x4)
         return logits
+
+class BasicUNetEncoder(nn.Module):
+    def __init__(
+            self,
+            dimensions: int = 3,
+            in_channels: int = 1,
+            features: Sequence[int] = (16, 16, 32, 64, 128, 16),
+            act: Union[str, tuple] = ("LeakyReLU", {"negative_slope": 0.1, "inplace": True}),
+            norm: Union[str, tuple] = ("instance", {"affine": True}),
+            dropout: Union[float, tuple] = 0.0,
+            pool_size=[(2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)]
+    ):
+        super().__init__()
+
+        fea = ensure_tuple_rep(features, 6)
+        print(f"BasicUNet features: {fea}.")
+
+        self.conv_0 = TwoConv(dimensions, in_channels, fea[0], act, norm, dropout)
+        self.down_1 = Down(dimensions, fea[0], fea[1], act, norm, dropout, pool_size=pool_size[0])
+        self.down_2 = Down(dimensions, fea[1], fea[2], act, norm, dropout, pool_size=pool_size[1])
+        self.down_3 = Down(dimensions, fea[2], fea[3], act, norm, dropout, pool_size=pool_size[2])
+        self.down_4 = Down(dimensions, fea[3], fea[4], act, norm, dropout, pool_size=pool_size[3])
+
+    def forward(self, x: torch.Tensor):
+        """
+        Args:
+            x: input should have spatially N dimensions
+                ``(Batch, in_channels, dim_0[, dim_1, ..., dim_N])``, N is defined by `dimensions`.
+                It is recommended to have ``dim_n % 16 == 0`` to ensure all maxpooling inputs have
+                even edge lengths.
+
+        Returns:
+            A torch Tensor of "raw" predictions in shape
+            ``(Batch, out_channels, dim_0[, dim_1, ..., dim_N])``.
+        """
+        x0 = self.conv_0(x)
+
+        x1 = self.down_1(x0)
+        x2 = self.down_2(x1)
+        x3 = self.down_3(x2)
+        x4 = self.down_4(x3)
+
+        return x4, x3, x2, x1, x0

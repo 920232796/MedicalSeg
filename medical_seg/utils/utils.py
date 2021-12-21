@@ -6,6 +6,67 @@ import torch.nn.functional as f
 import os
 import torch.nn as nn
 from scipy import ndimage
+from sklearn.model_selection import KFold  ## K折交叉验证
+import warnings
+
+def poly_lr(epoch, max_epochs, initial_lr, exponent=0.9):
+    return initial_lr * (1 - epoch / max_epochs)**exponent
+
+
+def resample_tensor_image_label(image, label, size):
+ 
+    if len(image.shape) != 5 or len(label.shape) != 4: 
+        print("image or label shape is  err ")
+        return
+    label = label.float()
+    image = nn.functional.interpolate(image, size=size, mode="trilinear", align_corners=False)
+    label = torch.unsqueeze(label, dim=1)
+    label = nn.functional.interpolate(label, size=size, mode="nearest")
+    label = torch.squeeze(label, dim=1).long()
+    return image, label
+
+def resample_tensor(tensor_data, size, is_label=False):
+    
+    if is_label:
+        assert len(tensor_data.shape) == 4, "label shape len is 4"
+        tensor_data = tensor_data.float()
+        tensor_data = torch.unsqueeze(tensor_data, dim=1)
+        tensor_data = nn.functional.interpolate(tensor_data, size=size, mode="nearest")
+        tensor_data = torch.squeeze(tensor_data, dim=1).long()
+    else:
+        assert len(tensor_data.shape) == 5, 'image shape len is 5'
+        tensor_data = nn.functional.interpolate(tensor_data, size=size, mode="trilinear", align_corners=False)
+
+    
+    return tensor_data
+
+
+def get_kfold_data(data_paths, n_splits, total_num, shuffle=False):
+    X = np.arange(total_num)
+    kfold = KFold(n_splits=n_splits, shuffle=shuffle)  ## kfold为KFolf类的一个对象
+    return_res = []
+    for a, b in kfold.split(X):
+        fold_train = []
+        fold_val = []
+        for i in a:
+            fold_train.append(data_paths[i])
+        for j in b:
+            fold_val.append(data_paths[j])
+        return_res.append({"train_data": fold_train, "val_data": fold_val})
+
+    return return_res
+
+def write_res_line(w_path, content):
+    with open(w_path, "a+", encoding="utf-8") as f:
+        if type(content) is list:
+            for c in content:
+                f.write("写入结果为：")
+                f.write(str(c))
+                f.write("\n")
+        else :
+            f.write("写入结果为：")
+            f.write(str(content))
+            f.write("\n")
 
 def softmin(x, dim=-1, t=1):
     m = nn.Softmin(dim)
@@ -43,18 +104,28 @@ def compute_orthogonal_loss(net_1, net_2):
     return orthogonal_loss
 
 
-def set_seed(seed: int):
-    """
-    Helper function for reproducible behavior to set the seed in ``random``, ``numpy``, ``torch`` and/or ``tf`` (if
-    installed).
+def set_seed(seed: int, use_deterministic_algorithms=None):
+   
 
-    Args:
-        seed (:obj:`int`): The seed to set.
-    """
+    seed = int(seed)
+    torch.manual_seed(seed)
+
+    global _seed
+    _seed = seed
     random.seed(seed)
     np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+
+    if seed is not None:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+   
+    if use_deterministic_algorithms is not None:
+        if hasattr(torch, "use_deterministic_algorithms"):
+            torch.use_deterministic_algorithms(use_deterministic_algorithms)
+        elif hasattr(torch, "set_deterministic"):
+            torch.set_deterministic(use_deterministic_algorithms)  # type: ignore
+        else:
+            warnings.warn("use_deterministic_algorithms=True, but PyTorch version is too old to set the mode.")
 
 
 def compute_dice(input, target):

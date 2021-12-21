@@ -2,16 +2,25 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+medical_seg/networks/nets/swin_unet/swin_tiny_patch4_window7_224.pth
 # C extensions
 *.so
+*.sh
+*.pth
+未开放examples
+未开放test
+nouse
+nnUNet-master
+monai
+batchgenerators
+brats_res
+meni_res
 data
 res.txt
 test.py
 res_dir
 state_dict
 run.sh
-examples
 nohup_dir
 state_dict
 # Distribution / packaging

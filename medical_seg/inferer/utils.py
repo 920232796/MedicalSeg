@@ -134,6 +134,8 @@ def sliding_window_inference(
     sw_device: Union[torch.device, str, None] = None,
     device: Union[torch.device, str, None] = None,
     pred_type: str ="forward",
+    do_mirror=False,
+    mirror_axes=None,
 ) -> torch.Tensor:
     """
     """
@@ -195,9 +197,54 @@ def sliding_window_inference(
         window_data = torch.cat([inputs[win_slice] for win_slice in unravel_slice]).to(sw_device)
         # print("data is " + str(window_data.shape))
         if pred_type == "forward":
-            seg_prob = predictor(window_data).to(device)  # batched patch segmentation
+            if not do_mirror:
+                seg_prob = predictor(window_data).to(device)  # batched patch segmentation
+            else :
+                mirror_idx = 8
+                if mirror_axes is None:
+                    print("do_mirror，则必须传入mirror_axes")
+                    import os
+                    os._exit(0)
+                num_results = 2 ** len(mirror_axes)
+                for m in range(mirror_idx):
+                    if m == 0:
+                        pred = predictor(window_data).to(device)
+                        seg_prob = 1 / num_results * pred
+
+                    if m == 1 and (2 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (4, )))
+                        seg_prob += 1 / num_results * torch.flip(pred, (4,))
+
+                    if m == 2 and (1 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (3, )))
+                        seg_prob += 1 / num_results * torch.flip(pred, (3,))
+
+                    if m == 3 and (2 in mirror_axes) and (1 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (4, 3)))
+                        seg_prob += 1 / num_results * torch.flip(pred, (4, 3))
+
+                    if m == 4 and (0 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (2, )))
+                        seg_prob += 1 / num_results * torch.flip(pred, (2,))
+
+                    if m == 5 and (0 in mirror_axes) and (2 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (4, 2)))
+                        seg_prob += 1 / num_results * torch.flip(pred, (4, 2))
+
+                    if m == 6 and (0 in mirror_axes) and (1 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (3, 2)))
+                        seg_prob += 1 / num_results * torch.flip(pred, (3, 2))
+
+                    if m == 7 and (0 in mirror_axes) and (1 in mirror_axes) and (2 in mirror_axes):
+                        pred = predictor(torch.flip(window_data, (4, 3, 2)))
+                        seg_prob += 1 / num_results * torch.flip(pred, (4, 3, 2))
+                        
+
         elif pred_type == "uncer":
             seg_prob = predictor.uncer(window_data).to(device)
+
+        else :
+            raise Exception(f"no support pred_type: {pred_type}")
 
         if not _initialized:  # init. buffer at the first iteration
             output_classes = seg_prob.shape[1]

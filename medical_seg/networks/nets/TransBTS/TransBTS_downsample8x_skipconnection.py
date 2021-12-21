@@ -11,10 +11,11 @@ class TransformerBTS(nn.Module):
         img_dim,
         patch_dim,
         num_channels,
-        embedding_dim,
         num_heads,
         num_layers,
-        hidden_dim,
+        hidden_dim=256,
+        embedding_dim=256,
+        base_channel=16,
         dropout_rate=0.0,
         attn_dropout_rate=0.0,
         conv_patch_representation=True,
@@ -32,11 +33,9 @@ class TransformerBTS(nn.Module):
         self.attn_dropout_rate = attn_dropout_rate
         self.conv_patch_representation = conv_patch_representation
 
-        self.num_patches = (img_dim[0] // patch_dim[0]) * (img_dim[1] // patch_dim[1]) * (img_dim[2] // patch_dim[2])
+        self.num_patches = (patch_dim[0]) * (patch_dim[1]) * (patch_dim[2])
         self.seq_length = self.num_patches
-        self.flatten_dim = 128 * num_channels
 
-        self.linear_encoding = nn.Linear(self.flatten_dim, self.embedding_dim)
         if positional_encoding_type == "learned":
             self.position_encoding = LearnedPositionalEncoding(
                 self.seq_length, self.embedding_dim, self.seq_length
@@ -62,15 +61,15 @@ class TransformerBTS(nn.Module):
         if self.conv_patch_representation:
 
             self.conv_x = nn.Conv3d(
-                128,
+                base_channel*8,
                 self.embedding_dim,
                 kernel_size=3,
                 stride=1,
                 padding=1
             )
 
-        self.Unet = Unet(in_channels=2, base_channels=16, num_classes=3)
-        self.bn = nn.BatchNorm3d(128)
+        self.Unet = Unet(in_channels=num_channels, base_channels=base_channel, num_classes=3)
+        self.bn = nn.BatchNorm3d(base_channel*8)
         self.relu = nn.ReLU(inplace=True)
 
 
@@ -78,33 +77,34 @@ class TransformerBTS(nn.Module):
         if self.conv_patch_representation:
             # combine embedding with conv patch distribution
             x1_1, x2_1, x3_1, x = self.Unet(x)
+    
             x = self.bn(x)
             x = self.relu(x)
             x = self.conv_x(x)
             x = x.permute(0, 2, 3, 4, 1).contiguous()
             x = x.view(x.size(0), -1, self.embedding_dim)
 
-        else:
-            x = self.Unet(x)
-            x = self.bn(x)
-            x = self.relu(x)
-            x = (
-                x.unfold(2, 2, 2)
-                .unfold(3, 2, 2)
-                .unfold(4, 2, 2)
-                .contiguous()
-            )
-            x = x.view(x.size(0), x.size(1), -1, 8)
-            x = x.permute(0, 2, 3, 1).contiguous()
-            x = x.view(x.size(0), -1, self.flatten_dim)
-            x = self.linear_encoding(x)
+        # else:
+        #     x = self.Unet(x)
+        #     x = self.bn(x)
+        #     x = self.relu(x)
+        #     x = (
+        #         x.unfold(2, 2, 2)
+        #         .unfold(3, 2, 2)
+        #         .unfold(4, 2, 2)
+        #         .contiguous()
+        #     )
+        #     x = x.view(x.size(0), x.size(1), -1, 8)
+        #     x = x.permute(0, 2, 3, 1).contiguous()
+        #     x = x.view(x.size(0), -1, self.flatten_dim)
+        #     x = self.linear_encoding(x)
 
         x = self.position_encoding(x)
         x = self.pe_dropout(x)
 
         # apply transformer
         x, intmd_x = self.transformer(x)
-        x = self.pre_head_ln(x)
+        # x = self.pre_head_ln(x)
 
         return x1_1, x2_1, x3_1, x, intmd_x
 
@@ -119,14 +119,13 @@ class TransformerBTS(nn.Module):
             x1_1, x2_1, x3_1, encoder_output, intmd_encoder_outputs, auxillary_output_layers
         )
 
-        if auxillary_output_layers is not None:
-            auxillary_outputs = {}
-            for i in auxillary_output_layers:
-                val = str(2 * i - 1)
-                _key = 'Z' + str(i)
-                auxillary_outputs[_key] = intmd_encoder_outputs[val]
+          #     auxillary_outputs = {}
+        #     for i in auxillary_output_layers:
+        #         val = str(2 * i - 1)
+        #         _key = 'Z' + str(i)
+        #         auxillary_outputs[_key] = intmd_encoder_outputs[val]
 
-            return decoder_output
+        #     return decoder_output
 
         return decoder_output
 
@@ -161,6 +160,7 @@ class BTS(TransformerBTS):
         num_heads,
         num_layers,
         hidden_dim,
+        base_channel=8,
         dropout_rate=0.0,
         attn_dropout_rate=0.0,
         conv_patch_representation=True,
@@ -174,6 +174,7 @@ class BTS(TransformerBTS):
             num_heads=num_heads,
             num_layers=num_layers,
             hidden_dim=hidden_dim,
+            base_channel=base_channel,
             dropout_rate=dropout_rate,
             attn_dropout_rate=attn_dropout_rate,
             conv_patch_representation=conv_patch_representation,
@@ -185,36 +186,38 @@ class BTS(TransformerBTS):
         self.Softmax = nn.Softmax(dim=1)
 
         self.Enblock8_1 = EnBlock1(in_channels=self.embedding_dim)
-        self.Enblock8_2 = EnBlock2(in_channels=self.embedding_dim // 4)
+        self.Enblock8_2 = EnBlock2(in_channels=self.embedding_dim)
 
-        self.DeUp4 = DeUp_Cat(in_channels=self.embedding_dim//4, out_channels=self.embedding_dim//8)
-        self.DeBlock4 = DeBlock(in_channels=self.embedding_dim//8)
+        self.DeUp4 = DeUp_Cat(in_channels=self.embedding_dim, out_channels=self.embedding_dim//2)
+        self.DeBlock4 = DeBlock(in_channels=self.embedding_dim//2)
 
-        self.DeUp3 = DeUp_Cat(in_channels=self.embedding_dim//8, out_channels=self.embedding_dim//16)
-        self.DeBlock3 = DeBlock(in_channels=self.embedding_dim//16)
+        self.DeUp3 = DeUp_Cat(in_channels=self.embedding_dim//2, out_channels=self.embedding_dim//4)
+        self.DeBlock3 = DeBlock(in_channels=self.embedding_dim//4)
 
-        self.DeUp2 = DeUp_Cat(in_channels=self.embedding_dim//16, out_channels=self.embedding_dim//32)
-        self.DeBlock2 = DeBlock(in_channels=self.embedding_dim//32)
+        self.DeUp2 = DeUp_Cat(in_channels=self.embedding_dim//4, out_channels=self.embedding_dim//8)
+        self.DeBlock2 = DeBlock(in_channels=self.embedding_dim//8)
 
-        self.endconv = nn.Conv3d(self.embedding_dim // 32, num_classes, kernel_size=1)
+        self.endconv = nn.Conv3d(self.embedding_dim // 8, num_classes, kernel_size=1)
 
 
     def decode(self, x1_1, x2_1, x3_1, x, intmd_x, intmd_layers=[1, 2, 3, 4]):
-
+        
+        # print(x.shape)
         assert intmd_layers is not None, "pass the intermediate layers for MLA"
-        encoder_outputs = {}
-        all_keys = []
-        for i in intmd_layers:
-            val = str(2 * i - 1)
-            _key = 'Z' + str(i)
-            all_keys.append(_key)
-            encoder_outputs[_key] = intmd_x[val]
-        all_keys.reverse()
+        # encoder_outputs = {}
+        # all_keys = []
+        # for i in intmd_layers:
+        #     val = str(2 * i - 1)
+        #     _key = 'Z' + str(i)
+        #     all_keys.append(_key)
+        #     encoder_outputs[_key] = intmd_x[val]
+        # all_keys.reverse()
 
-        x8 = encoder_outputs[all_keys[0]]
-        x8 = self._reshape_output(x8)
+        # x8 = encoder_outputs[all_keys[0]]
+        x8 = self._reshape_output(x)
         x8 = self.Enblock8_1(x8)
         x8 = self.Enblock8_2(x8)
+        
         y4 = self.DeUp4(x8, x3_1)  # (1, 64, 32, 32, 32)
         y4 = self.DeBlock4(y4)
 
@@ -225,19 +228,19 @@ class BTS(TransformerBTS):
         y2 = self.DeBlock2(y2)
 
         y = self.endconv(y2)      # (1, 4, 128, 128, 128)
-        y = self.Softmax(y)
+        # y = self.Softmax(y)
         return y
 
 class EnBlock1(nn.Module):
     def __init__(self, in_channels):
         super(EnBlock1, self).__init__()
 
-        self.bn1 = nn.BatchNorm3d(512 // 4)
+        self.bn1 = nn.BatchNorm3d(in_channels)
         self.relu1 = nn.ReLU(inplace=True)
-        self.bn2 = nn.BatchNorm3d(512 // 4)
+        self.bn2 = nn.BatchNorm3d(in_channels)
         self.relu2 = nn.ReLU(inplace=True)
-        self.conv1 = nn.Conv3d(in_channels, in_channels // 4, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv3d(in_channels // 4, in_channels // 4, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv3d(in_channels, in_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv3d(in_channels, in_channels, kernel_size=3, padding=1)
 
     def forward(self, x):
         x1 = self.conv1(x)
@@ -255,9 +258,9 @@ class EnBlock2(nn.Module):
         super(EnBlock2, self).__init__()
 
         self.conv1 = nn.Conv3d(in_channels, in_channels, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm3d(512 // 4)
+        self.bn1 = nn.BatchNorm3d(in_channels)
         self.relu1 = nn.ReLU(inplace=True)
-        self.bn2 = nn.BatchNorm3d(512 // 4)
+        self.bn2 = nn.BatchNorm3d(in_channels)
         self.relu2 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv3d(in_channels, in_channels, kernel_size=3, padding=1)
 
@@ -313,24 +316,25 @@ class DeBlock(nn.Module):
 
 
 
-def TransBTS(in_channels, out_channels, _conv_repr=True, _pe_type="learned"):
+def TransBTS(image_size, patch_dim, in_channels, out_channels, base_channel=8, _conv_repr=True, _pe_type="learned", num_layers=4, hidden_dim=128, embedding_dim=128):
 
     
-    img_dim = (32, 256, 256)
+    img_dim = image_size
     num_classes = out_channels
 
     num_channels = in_channels
-    patch_dim = (4, 32, 32)
-    aux_layers = [1, 2, 3, 4]
+    # aux_layers = [1, 2, 3, 4]
+    aux_layers = None 
     model = BTS(
         img_dim,
         patch_dim,
         num_channels,
         num_classes,
-        embedding_dim=512,
+        embedding_dim=embedding_dim,
         num_heads=8,
-        num_layers=4,
-        hidden_dim=4096,
+        base_channel=base_channel,
+        num_layers=num_layers,
+        hidden_dim=hidden_dim,
         dropout_rate=0.1,
         attn_dropout_rate=0.1,
         conv_patch_representation=_conv_repr,

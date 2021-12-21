@@ -257,20 +257,21 @@ class BasicUNet(nn.Module):
 
 
     def down_pass(self, x):
-        self.x0 = self.conv_0(x)
+        x0 = self.conv_0(x)
 
-        self.x1 = self.down_1(self.x0)
-        self.x2 = self.down_2(self.x1)
-        self.x3 = self.down_3(self.x2)
-        self.x4 = self.down_4(self.x3)
+        x1 = self.down_1(x0)
+        x2 = self.down_2(x1)
+        x3 = self.down_3(x2)
+        x4 = self.down_4(x3)
+        return x4, x3, x2, x1, x0
         
 
-    def up_pass(self, fusion_out):
-        x4_fusion = torch.cat([self.x4, fusion_out], dim=1)
-        u4 = self.upcat_4(x4_fusion, self.x3)
-        u3 = self.upcat_3(u4, self.x2)
-        u2 = self.upcat_2(u3, self.x1)
-        u1 = self.upcat_1(u2, self.x0)
+    def up_pass(self, fusion_out, x4, x3, x2, x1, x0):
+        x4_fusion = torch.cat([x4, fusion_out], dim=1)
+        u4 = self.upcat_4(x4_fusion, x3)
+        u3 = self.upcat_3(u4, x2)
+        u2 = self.upcat_2(u3, x1)
+        u1 = self.upcat_1(u2, x0)
 
         logits = self.final_conv(u1)
         return logits
